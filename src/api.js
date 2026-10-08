@@ -5,6 +5,7 @@
 // estos métodos se convierten en endpoints del servidor con la misma lógica.
 import { crearSemilla } from './seed.js';
 import { fechaISO, fechaHoraISO, sumarDias, diasEntre, fmtFecha } from './util.js';
+import { emparejar } from './teams.js';
 
 const DIA_MS = 86400000;
 /** Cuántos segundos puede avanzar un reporte de progreso respecto a lo ya visto (evita adelantar el video). */
@@ -844,12 +845,68 @@ export class Api {
     return { marcados };
   }
 
+  /**
+   * Compara los participantes del informe de Teams con los asignados (no registra nada).
+   * participantes: [{ nombre, correo, ingreso, duracion }] (ver src/teams.js)
+   */
+  previsualizarTeams(uid, capId, participantes) {
+    this.exigir(uid, capId, 'editar');
+    const asignaciones = this.db.asignaciones.filter((a) => a.capacitacion_id === capId);
+    const usuarios = this.db.usuarios.filter((u) => u.activo);
+    const res = { registrar: [], yaRegistrados: [], noAsignados: [], noReconocidos: [] };
+    const vistos = new Set();
+    for (const p of participantes || []) {
+      const m = emparejar(p, usuarios);
+      if (!m) {
+        res.noReconocidos.push(p);
+        continue;
+      }
+      if (vistos.has(m.usuario.id)) continue;
+      vistos.add(m.usuario.id);
+      const a = asignaciones.find((x) => x.colaborador_id === m.usuario.id);
+      const item = { participante: p, por: m.por, usuario: { id: m.usuario.id, nombre: m.usuario.nombre, area: m.usuario.area }, asignacionId: a?.id || null };
+      if (!a) res.noAsignados.push(item);
+      else if (this.resumen(a).presencialOk) res.yaRegistrados.push(item);
+      else res.registrar.push(item);
+    }
+    // Personas asignadas que aún no tienen asistencia (para elegir a mano a un no reconocido).
+    res.pendientes = asignaciones
+      .filter((a) => !this.resumen(a).presencialOk && !res.registrar.some((x) => x.asignacionId === a.id))
+      .map((a) => ({ asignacionId: a.id, nombre: this.usuario(a.colaborador_id).nombre }))
+      .sort((x, y) => x.nombre.localeCompare(y.nombre, 'es'));
+    return res;
+  }
+
+  /** Registra la asistencia según el informe de Teams. items: [{ asignacionId, ingreso, duracion, nombreTeams }] */
+  registrarDesdeTeams(uid, capId, items, nombreArchivo = '') {
+    const { cap } = this.exigir(uid, capId, 'editar');
+    let marcados = 0;
+    for (const it of items || []) {
+      const a = this.db.asignaciones.find((x) => x.id === it.asignacionId && x.capacitacion_id === capId);
+      if (!a) throw new AccesoDenegado();
+      let asis = this.db.asistencias.find((x) => x.asignacion_id === a.id);
+      if (asis && asis.tipo !== 'virtual') continue;
+      if (!asis) {
+        asis = { id: this.nuevoId('as'), asignacion_id: a.id, firma_id: null, firmado_en: null };
+        this.db.asistencias.push(asis);
+      }
+      const detalle = [it.nombreTeams && `Teams: ${it.nombreTeams}`, it.ingreso && `ingreso ${it.ingreso}`, it.duracion && `duración ${it.duracion}`].filter(Boolean).join(' · ');
+      Object.assign(asis, { sesion_id: null, tipo: 'teams', registrado_en: this.marca(), dispositivo: String(detalle).slice(0, 200) });
+      marcados++;
+      const r = this.resumen(a);
+      this.notificar(a.colaborador_id, 'Asistencia registrada', r.requiereAccion ? `Se registró tu asistencia a «${cap.titulo}». Te falta ${r.falta}.` : `Se registró tu asistencia a «${cap.titulo}». ¡Listo!`, `#/mis-capacitaciones/${a.id}`);
+    }
+    if (marcados) this.auditar(uid, 'asistencia_teams', capId, `Registró ${marcados} asistencia(s) desde la lista de Teams${nombreArchivo ? ` (${String(nombreArchivo).slice(0, 80)})` : ''}`);
+    this.guardar();
+    return { marcados };
+  }
+
   quitarAsistencia(uid, capId, asigId) {
     this.exigir(uid, capId, 'editar');
     const a = this.db.asignaciones.find((x) => x.id === asigId && x.capacitacion_id === capId);
     if (!a) throw new AccesoDenegado();
     const asis = this.db.asistencias.find((x) => x.asignacion_id === a.id);
-    if (!asis || asis.tipo !== 'presencial_manual' || asis.firmado_en) throw new ErrorNegocio('Solo se puede quitar una asistencia marcada por RR.HH. y sin firma.');
+    if (!asis || !['presencial_manual', 'teams'].includes(asis.tipo) || asis.firmado_en) throw new ErrorNegocio('Solo se puede quitar una asistencia marcada por RR.HH. y sin firma.');
     this.db.asistencias = this.db.asistencias.filter((x) => x !== asis);
     this.auditar(uid, 'quitar_asistencia', capId, `Quitó la asistencia de ${this.usuario(a.colaborador_id).nombre}`);
     this.guardar();

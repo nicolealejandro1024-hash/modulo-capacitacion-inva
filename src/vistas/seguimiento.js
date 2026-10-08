@@ -3,6 +3,7 @@ import { api, sesion, app, navegar, toast, intentar, modal, confirmar } from '..
 import { esc, fmtFecha, fmtFechaLarga, fmtFechaHora, fmtDuracion, ESTADOS, CATEGORIAS, MODALIDADES, ROLES_RESP, TIPOS_RECORDATORIO, TIPOS_ASISTENCIA } from '../util.js';
 import { pillEstado } from './colaborador.js';
 import { ico } from '../iconos.js';
+import { decodificar, aFilas, participantesDesdeFilas } from '../teams.js';
 
 const FILTROS = [
   { id: 'todos', label: 'Todos', estados: null },
@@ -68,11 +69,11 @@ export function vistaSeguimiento(capId) {
   const reunionesHtml =
     cap.modalidad !== 'en_vivo'
       ? ''
-      : `<div class="tarjeta sin-pad"><div class="filtros"><h2>Reuniones de Teams</h2>${permisos.editar ? `<a class="btn btn-sec btn-sm" href="#/capacitaciones/${esc(capId)}/editar">Editar horarios</a>` : ''}</div>
+      : `<div class="tarjeta sin-pad"><div class="filtros"><h2>Reuniones de Teams</h2>${permisos.editar ? `<div class="acciones"><a class="btn btn-sec btn-sm" href="#/capacitaciones/${esc(capId)}/editar">Editar horarios</a><button class="btn btn-primario btn-sm" data-subir-teams>${ico.descarga} Subir lista de Teams</button></div>` : ''}</div>
         <div class="tabla-wrap"><table><thead><tr><th>Fecha</th><th>Horario</th><th>Enlace</th></tr></thead><tbody>${(cap.reuniones || [])
           .map((x) => `<tr><td>${esc(fmtFecha(x.fecha))}</td><td>${esc(x.hora_inicio)}–${esc(x.hora_fin)}</td><td>${x.enlace ? `<a href="${esc(x.enlace)}" target="_blank" rel="noopener">Abrir en Teams</a>` : '—'}</td></tr>`)
           .join('')}</tbody></table></div>
-        <p class="muted small" style="padding:0 16px 14px">${cap.preguntas.length ? 'La gente entra desde la invitación de Teams y después responde el cuestionario en el portal: al aprobarlo queda completada.' : 'Sin cuestionario: después de la reunión selecciona en la tabla a quienes asistieron (puedes guiarte por la lista de asistencia de Teams) y pulsa «Registrar asistencia».'}</p></div>`;
+        <p class="muted small" style="padding:0 16px 14px">${cap.preguntas.length ? 'La gente entra desde la invitación de Teams y después responde el cuestionario en el portal: al aprobarlo queda completada. Si quieres, sube la lista de Teams como evidencia de asistencia.' : 'Sin cuestionario: después de la reunión pulsa «Subir lista de Teams» y se registra automáticamente a quienes asistieron. También puedes marcarlos a mano en la tabla.'}</p></div>`;
 
   const sesionesHtml =
     !['presencial', 'mixta'].includes(cap.modalidad)
@@ -126,7 +127,7 @@ export function vistaSeguimiento(capId) {
         <div role="group" aria-label="Filtrar por estado" class="pildoras">${FILTROS.map((fl) => `<button class="pildora" data-filtro="${fl.id}" aria-pressed="${fl.id === 'todos'}">${fl.label} (${fl.estados ? s.filas.filter((x) => fl.estados.includes(x.resumen.estado)).length : s.filas.length})</button>`).join('')}</div>
         ${
           marcarAsistencia
-            ? '<button class="btn btn-primario btn-sm" id="marcar-sel" disabled>Registrar asistencia (0)</button>'
+            ? `<div class="acciones"><button class="btn btn-sec btn-sm" data-subir-teams>Subir lista de Teams</button><button class="btn btn-primario btn-sm" id="marcar-sel" disabled>Registrar asistencia (0)</button></div>`
             : permisos.recordar
               ? `<button class="btn btn-primario btn-sm" id="recordar-todos" ${pendientesRecordar.length ? '' : 'disabled'}>Recordar a los que faltan (${pendientesRecordar.length})</button>`
               : ''
@@ -166,6 +167,7 @@ export function vistaSeguimiento(capId) {
       );
       root.querySelector('#buscar').addEventListener('input', aplicar);
       root.querySelector('#f-area').addEventListener('change', aplicar);
+      root.querySelectorAll('[data-subir-teams]').forEach((b) => b.addEventListener('click', () => subirListaTeams(capId)));
       const btnSel = root.querySelector('#marcar-sel');
       const actualizarSel = () => {
         const n = root.querySelectorAll('[data-sel]:checked').length;
@@ -242,6 +244,120 @@ export function vistaSeguimiento(capId) {
       });
     },
   };
+}
+
+// ───────────────────────── Subir lista de asistencia de Teams ─────────────────────────
+async function leerArchivoTeams(archivo) {
+  const buf = await archivo.arrayBuffer();
+  if (/\.xlsx?$/i.test(archivo.name)) {
+    if (!window.XLSX) throw new Error('No se pudo cargar el lector de Excel. Revisa tu conexión o sube el archivo .csv.');
+    const wb = window.XLSX.read(buf, { type: 'array' });
+    let ultimoError;
+    for (const nombre of wb.SheetNames) {
+      try {
+        const filas = window.XLSX.utils.sheet_to_json(wb.Sheets[nombre], { header: 1, raw: false, defval: '' }).map((f) => f.map((c) => String(c)));
+        return participantesDesdeFilas(filas);
+      } catch (e) {
+        ultimoError = e;
+      }
+    }
+    throw ultimoError;
+  }
+  return participantesDesdeFilas(aFilas(decodificar(buf)));
+}
+
+function subirListaTeams(capId) {
+  const uid = sesion.uid;
+  const m = modal(
+    'Subir lista de asistencia de Teams',
+    `<div class="pila">
+      <ol class="small" style="margin:0;padding-left:20px">
+        <li>En Teams abre la reunión desde el <b>Calendario</b> (o el chat de la reunión).</li>
+        <li>Ve a la pestaña <b>Asistencia</b> y pulsa <b>Descargar</b>.</li>
+        <li>Sube aquí ese archivo (.csv o .xlsx), sin modificarlo.</li>
+      </ol>
+      <label class="campo"><span>Archivo de Teams</span><input type="file" id="archivo-teams" accept=".csv,.txt,.xlsx,.xls"></label>
+      <p class="small muted">¿Solo quieres probar? <a href="datos-ejemplo/lista-asistencia-teams-ejemplo.csv" download>Descarga un archivo de ejemplo</a> (sirve para «Presentación de beneficios 2026»).</p>
+      <div id="vista-teams"></div>
+      <div class="acciones" style="justify-content:flex-end"><button class="btn btn-sec" data-cerrar>Cancelar</button><button class="btn btn-primario" id="confirmar-teams" disabled>Registrar asistencia</button></div>
+    </div>`
+  );
+  m.el.style.width = 'min(680px, 100%)';
+  let prev = null;
+  let nombreArchivo = '';
+  const vista = m.el.querySelector('#vista-teams');
+  const btn = m.el.querySelector('#confirmar-teams');
+  const elegidos = () => {
+    const ids = [...vista.querySelectorAll('[data-reg]:checked')].map((c) => ({ asignacionId: c.dataset.reg, i: Number(c.dataset.i), lista: 'registrar' }));
+    const manuales = [...vista.querySelectorAll('[data-manual]')].filter((s) => s.value).map((s) => ({ asignacionId: s.value, i: Number(s.dataset.manual), lista: 'noReconocidos' }));
+    const vistos = new Set();
+    return [...ids, ...manuales]
+      .filter((x) => !vistos.has(x.asignacionId) && vistos.add(x.asignacionId))
+      .map((x) => {
+        const p = x.lista === 'registrar' ? prev.registrar[x.i].participante : prev.noReconocidos[x.i];
+        return { asignacionId: x.asignacionId, ingreso: p.ingreso, duracion: p.duracion, nombreTeams: p.nombre };
+      });
+  };
+  const actualizar = () => {
+    const n = prev ? elegidos().length : 0;
+    btn.disabled = n === 0;
+    btn.textContent = `Registrar asistencia (${n})`;
+  };
+  const pintar = () => {
+    const li = (txt) => `<li>${txt}</li>`;
+    vista.innerHTML = `<div class="pila">
+      <div class="aviso ${prev.registrar.length ? 'ok' : 'warn'}"><b>${prev.registrar.length}</b>&nbsp;persona(s) asignada(s) se registrarán. Revisa y desmarca si hace falta.</div>
+      ${
+        prev.registrar.length
+          ? `<div class="pila" style="gap:4px">${prev.registrar
+              .map(
+                (x, i) => `<label class="check"><input type="checkbox" data-reg="${esc(x.asignacionId)}" data-i="${i}" checked>
+                <span><b>${esc(x.usuario.nombre)}</b> <span class="small muted">· ${esc(x.usuario.area)} · en Teams: «${esc(x.participante.nombre)}»${x.participante.duracion ? ' · ' + esc(x.participante.duracion) : ''} · reconocido por ${x.por}</span></span></label>`
+              )
+              .join('')}</div>`
+          : ''
+      }
+      ${prev.yaRegistrados.length ? `<details class="small"><summary>${prev.yaRegistrados.length} ya tenían asistencia registrada</summary><ul>${prev.yaRegistrados.map((x) => li(esc(x.usuario.nombre))).join('')}</ul></details>` : ''}
+      ${prev.noAsignados.length ? `<details class="small"><summary>${prev.noAsignados.length} estuvieron en la reunión pero no están asignados a esta capacitación</summary><ul>${prev.noAsignados.map((x) => li(esc(x.usuario.nombre))).join('')}</ul><p class="muted">Si deben figurar, agrégalos en «Asignación» al editar la capacitación y vuelve a subir la lista.</p></details>` : ''}
+      ${
+        prev.noReconocidos.length
+          ? `<details class="small" open><summary>${prev.noReconocidos.length} no se reconocieron (invitados externos, nombres distintos…)</summary>
+            <p class="muted">Si alguno es un colaborador, elige quién es:</p>
+            ${prev.noReconocidos
+              .map(
+                (p, i) => `<div class="fila" style="flex-wrap:nowrap;gap:8px;margin-bottom:6px"><span style="flex:1">«${esc(p.nombre)}»${p.correo ? ` <span class="muted">${esc(p.correo)}</span>` : ''}</span>
+                <select data-manual="${i}" style="width:auto;min-height:36px;padding:4px 8px" aria-label="Elegir colaborador para ${esc(p.nombre)}"><option value="">No es colaborador / ignorar</option>${prev.pendientes.map((x) => `<option value="${esc(x.asignacionId)}">${esc(x.nombre)}</option>`).join('')}</select></div>`
+              )
+              .join('')}</details>`
+          : ''
+      }
+    </div>`;
+    vista.addEventListener('change', actualizar);
+    actualizar();
+  };
+  m.el.querySelector('#archivo-teams').addEventListener('change', async (e) => {
+    const archivo = e.target.files[0];
+    if (!archivo) return;
+    nombreArchivo = archivo.name;
+    vista.innerHTML = '<p class="muted small">Leyendo archivo…</p>';
+    try {
+      const participantes = await leerArchivoTeams(archivo);
+      prev = api.previsualizarTeams(uid, capId, participantes);
+      pintar();
+    } catch (err) {
+      prev = null;
+      vista.innerHTML = `<div class="aviso error">${esc(err.message)}</div>`;
+      actualizar();
+    }
+  });
+  btn.addEventListener('click', () => {
+    const r = intentar(() => api.registrarDesdeTeams(uid, capId, elegidos(), nombreArchivo));
+    if (r) {
+      m.cerrar();
+      toast(`Asistencia registrada a ${r.marcados} persona(s) desde la lista de Teams.`, 'ok');
+      app.refrescar();
+    }
+  });
 }
 
 // ───────────────────────── Preguntas de los colaboradores ─────────────────────────

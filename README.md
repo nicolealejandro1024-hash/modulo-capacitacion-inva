@@ -40,6 +40,7 @@ y **restablecer los datos de ejemplo**. En el reproductor hay una velocidad **16
   revisión de respuestas configurables (las correctas solo se revelan al aprobar o al agotar intentos).
 - Declaración + **firma** (reutiliza «Mi Firma» si ya existe, o se dibuja con el dedo/mouse). Recién con la firma pasa a *Completado*.
 - **Virtual en vivo (Teams):** se indica la fecha y hora de la reunión; la gente entra directo desde la invitación de Teams. Con cuestionario, queda completada al aprobarlo; sin cuestionario, RR.HH. registra la asistencia desde el Seguimiento (varias personas a la vez). Firma opcional y grabación opcional para quien faltó. Sirve también para capacitadores externos.
+- **Subir la lista de asistencia de Teams** (.csv o .xlsx tal como la descarga Teams): reconoce a cada persona por correo o nombre, muestra una vista previa y registra la asistencia automáticamente. Archivo de prueba: `datos-ejemplo/lista-asistencia-teams-ejemplo.csv`.
 - **«¿Tienes alguna pregunta?»** en cada capacitación: la duda llega a sus responsables y la respuesta vuelve con aviso en la campana.
 - Asistencia presencial por **QR** y aviso de datos personales (Ley 29733).
 

@@ -77,6 +77,7 @@ export const TIPOS_ASISTENCIA = {
   virtual: 'Virtual (videos)',
   presencial_qr: 'Presencial (QR)',
   presencial_manual: 'Registrada por RR.HH.',
+  teams: 'Lista de asistencia de Teams',
 };
 export const TIPOS_RECORDATORIO = {
   asignacion: 'Aviso de asignación',

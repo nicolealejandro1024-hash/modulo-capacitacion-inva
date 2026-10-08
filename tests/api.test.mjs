@@ -188,3 +188,23 @@ test('virtual en vivo SIN cuestionario: RR.HH. registra la asistencia de varios;
   api.guardarCapacitacion('u1', id, { titulo: 'En vivo', modalidad: 'en_vivo', reuniones: [{ fecha: '2026-10-10', hora_inicio: '09:00', hora_fin: '10:00' }] });
   assert.ok(api.cambiarEstado('u1', id, 'publicada').nuevos > 0);
 });
+
+test('lista de asistencia de Teams: lee el archivo y registra a los asignados', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { decodificar, aFilas, participantesDesdeFilas } = await import('../src/teams.js');
+  const buf = readFileSync(new URL('../datos-ejemplo/lista-asistencia-teams-ejemplo.csv', import.meta.url));
+  const parts = participantesDesdeFilas(aFilas(decodificar(buf)));
+  assert.equal(parts.length, 7);
+  const api = nuevaApi();
+  const prev = api.previsualizarTeams('u1', 'cap6', parts);
+  const nombres = (l) => l.map((x) => x.usuario.nombre).sort();
+  // Luis por nombre invertido, Camila por correo, Jorge con "(INVA)", Nicole por correo.
+  assert.deepEqual(nombres(prev.registrar), ['Camila Paredes', 'Jorge Ramírez', 'Nicole Alejandro']);
+  assert.deepEqual(nombres(prev.yaRegistrados), ['Luis Fernández']); // ya estaba en la semilla
+  assert.deepEqual(nombres(prev.noAsignados), ['Andrés Quispe']); // Ingeniería no está asignada
+  assert.equal(prev.noReconocidos.length, 2); // expositor externo y "Usuario de Teams"
+  assert.throws(() => api.previsualizarTeams('u3', 'cap6', parts), AccesoDenegado);
+  const r = api.registrarDesdeTeams('u1', 'cap6', prev.registrar.map((x) => ({ asignacionId: x.asignacionId, ingreso: x.participante.ingreso, duracion: x.participante.duracion })));
+  assert.equal(r.marcados, 3);
+  assert.ok(prev.registrar.every((x) => api.resumen(api.db.asignaciones.find((a) => a.id === x.asignacionId)).estado === 'completado'));
+});
