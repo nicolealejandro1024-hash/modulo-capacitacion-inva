@@ -140,13 +140,57 @@ export function vistaCurso(asigId, query) {
       </div><div>${pillEstado(r)}</div></div>
       ${avisos}
       <div class="curso">
-        <div class="principal">${contenido}</div>
+        <div class="principal">${contenido}${panelPreguntas(asigId)}</div>
         <nav class="indice" aria-label="Contenido de la capacitación"><h2>Contenido</h2>${indice}
           <div style="padding:10px 12px"><div class="barra" aria-hidden="true"><div style="width:${r.porcentaje}%"></div></div><span class="small muted">${r.porcentaje} % completado</span></div>
         </nav>
       </div>`,
-    montar,
+    montar: (root) => {
+      montar(root);
+      montarPreguntas(root, asigId);
+    },
   };
+}
+
+// ───────────────────────── ¿Tienes alguna pregunta? ─────────────────────────
+function panelPreguntas(asigId) {
+  const consultas = api.misConsultas(sesion.uid, asigId);
+  const lista = consultas
+    .map(
+      (q) => `<div class="consulta">
+        <p><b>Tu pregunta</b> <span class="small muted">· ${esc(fmtFechaHora(q.creado_en))}</span></p>
+        <p>${esc(q.texto)}</p>
+        ${
+          q.respuesta
+            ? `<div class="respuesta"><p class="small"><b>Respuesta de ${esc(q.respondido_por_nombre || 'RR.HH.')}</b> <span class="muted">· ${esc(fmtFechaHora(q.respondido_en))}</span></p><p>${esc(q.respuesta)}</p></div>`
+            : '<span class="pill naranja" style="align-self:flex-start">Esperando respuesta</span>'
+        }
+      </div>`
+    )
+    .join('');
+  return `<section class="tarjeta pila" id="preguntas" aria-labelledby="preguntas-t">
+    <div><h2 id="preguntas-t">¿Tienes alguna pregunta?</h2><p class="muted small">Escribe tu duda sobre esta capacitación. Le llega a las personas responsables y te avisaremos cuando te respondan.</p></div>
+    <form class="pila" id="form-pregunta">
+      <label class="sr-only" for="txt-pregunta">Tu pregunta</label>
+      <textarea id="txt-pregunta" maxlength="1000" placeholder="Ej.: No entendí la parte de… / ¿Dónde encuentro…?" required></textarea>
+      <button class="btn btn-oscuro" style="align-self:flex-start">Enviar pregunta</button>
+    </form>
+    ${lista ? `<div class="pila">${lista}</div>` : ''}
+  </section>`;
+}
+
+function montarPreguntas(root, asigId) {
+  root.querySelector('#form-pregunta')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const txt = root.querySelector('#txt-pregunta');
+    if (intentar(() => api.enviarConsulta(sesion.uid, asigId, txt.value), 'Pregunta enviada. Te avisaremos cuando te respondan.')) {
+      const [base, qs] = location.hash.split('?');
+      const params = new URLSearchParams(qs || '');
+      params.delete('resultado');
+      navegar(`${base}?${params}`.replace(/\?$/, ''));
+      setTimeout(() => document.getElementById('preguntas')?.scrollIntoView({ block: 'start' }), 50);
+    }
+  });
 }
 
 const esVideoDirecto = (url) => /\.(mp4|webm|ogg|mov)(\?|#|$)/i.test(url || '');

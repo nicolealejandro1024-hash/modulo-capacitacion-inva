@@ -39,6 +39,7 @@ y **restablecer los datos de ejemplo**. En el reproductor hay una velocidad **16
 - Cuestionario (opción múltiple o verdadero/falso) que se desbloquea al terminar los videos; nota mínima, intentos y
   revisión de respuestas configurables (las correctas solo se revelan al aprobar o al agotar intentos).
 - Declaración + **firma** (reutiliza «Mi Firma» si ya existe, o se dibuja con el dedo/mouse). Recién con la firma pasa a *Completado*.
+- **«¿Tienes alguna pregunta?»** en cada capacitación: la duda llega a sus responsables y la respuesta vuelve con aviso en la campana.
 - Asistencia presencial por **QR** y aviso de datos personales (Ley 29733).
 
 **RR.HH. / responsables – Capacitaciones**
@@ -50,6 +51,7 @@ y **restablecer los datos de ejemplo**. En el reproductor hay una velocidad **16
 - Seguimiento: KPIs, filtros por estado, búsqueda, filtro por área, tabla por persona, recordatorio individual y
   «Recordar a los que faltan (N)», exportar a **Excel** y detalle por persona (videos, intentos, firma, recordatorios).
   Acciones extra: habilitar un intento, cambiar fecha límite, marcar asistencia manual.
+- **Preguntas de los colaboradores** en el seguimiento: ver las pendientes y responderlas (propietario y editor).
 - **Recordatorios automáticos** (tarea diaria): cada N días, 1 día antes (con copia opcional al jefe), al vencer
   (a la persona y a los responsables); nunca a quien completó y máximo 1 automático por día.
 - **Registro de asistencia** imprimible/PDF con logo, código correlativo, datos del capacitador, lista con DNI, nota y firma.

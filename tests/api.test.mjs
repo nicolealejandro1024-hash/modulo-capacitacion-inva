@@ -133,3 +133,23 @@ test('nuevo ingreso recibe la inducción automáticamente', () => {
   assert.deepEqual(asignadas, ['Inducción INVA']);
   assert.equal(api.misCapacitaciones(usuario.id).length, 1);
 });
+
+test('preguntas: el colaborador pregunta, solo responsables con permiso responden', () => {
+  const api = nuevaApi();
+  const a = api.db.asignaciones.find((x) => x.colaborador_id === 'c4' && x.capacitacion_id === 'cap1');
+  assert.throws(() => api.enviarConsulta('c4', a.id, '   '), ErrorNegocio);
+  const q = api.enviarConsulta('c4', a.id, '¿Hasta cuándo tengo plazo?');
+  // Llega a propietaria y editora de la Inducción INVA, no a otros RR.HH.
+  assert.ok(api.db.notificaciones.some((n) => n.usuario_id === 'u1' && n.titulo === 'Nueva pregunta de un colaborador'));
+  assert.ok(api.db.notificaciones.some((n) => n.usuario_id === 'u2' && n.titulo === 'Nueva pregunta de un colaborador'));
+  assert.ok(!api.db.notificaciones.some((n) => n.usuario_id === 'u3' && n.titulo === 'Nueva pregunta de un colaborador'));
+  // Un RR.HH. no responsable no ve ni responde.
+  assert.throws(() => api.consultasCapacitacion('u3', 'cap1'), AccesoDenegado);
+  assert.throws(() => api.responderConsulta('u3', 'cap1', q.id, 'x'), AccesoDenegado);
+  // Otro colaborador no ve preguntas ajenas.
+  const ajena = api.db.asignaciones.find((x) => x.colaborador_id === 'c1' && x.capacitacion_id === 'cap1');
+  assert.ok(api.misConsultas('c1', ajena.id).every((x) => x.usuario_id === 'c1'));
+  api.responderConsulta('u2', 'cap1', q.id, 'Hasta la fecha límite indicada.');
+  assert.equal(api.misConsultas('c4', a.id)[0].respuesta, 'Hasta la fecha límite indicada.');
+  assert.ok(api.db.notificaciones.some((n) => n.usuario_id === 'c4' && n.titulo === 'Respondieron tu pregunta'));
+});

@@ -270,5 +270,9 @@ export function crearSemilla(hoy) {
     recordatorios,
     notificaciones,
     auditoria,
+    consultas: [
+      { id: 'q1', capacitacion_id: 'cap1', asignacion_id: 'a7', usuario_id: 'c3', texto: '¿La inducción se puede ver desde el celular estando en obra?', creado_en: ts(-1, 16, 20), respuesta: null, respondido_por: null, respondido_en: null },
+      { id: 'q2', capacitacion_id: 'cap1', asignacion_id: 'a6', usuario_id: 'c2', texto: '¿Dónde encuentro el reglamento interno que mencionan en el video 3?', creado_en: ts(-2, 11, 5), respuesta: 'Está en «Documentos / Firma» del portal, carpeta Políticas internas.', respondido_por: 'u1', respondido_en: ts(-2, 15, 30) },
+    ],
   };
 }

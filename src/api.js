@@ -57,6 +57,7 @@ export class Api {
       this.db = crearSemilla(fechaISO(this._ahora()));
       this.guardar();
     }
+    this.db.consultas ||= []; // datos guardados antes de existir las preguntas
   }
 
   guardar() {
@@ -841,6 +842,55 @@ export class Api {
     this.auditar(uid, 'exportar_excel', capId, 'Exportó el seguimiento a Excel');
     this.guardar();
     return seg;
+  }
+
+  // ───────────────────────── preguntas de los colaboradores ─────────────────────────
+  consultaConNombres(q) {
+    return { ...copia(q), autor: this.usuario(q.usuario_id)?.nombre || '', respondido_por_nombre: q.respondido_por ? this.usuario(q.respondido_por)?.nombre : null };
+  }
+
+  /** El colaborador ve solo sus propias preguntas de esa capacitación. */
+  misConsultas(uid, asigId) {
+    const { a } = this.miAsignacion(uid, asigId);
+    return this.db.consultas.filter((q) => q.asignacion_id === a.id).sort((x, y) => y.creado_en.localeCompare(x.creado_en)).map((q) => this.consultaConNombres(q));
+  }
+
+  enviarConsulta(uid, asigId, texto) {
+    const { a, cap } = this.miAsignacion(uid, asigId);
+    texto = String(texto || '').trim().slice(0, 1000);
+    if (!texto) throw new ErrorNegocio('Escribe tu pregunta.');
+    const q = { id: this.nuevoId('q'), capacitacion_id: cap.id, asignacion_id: a.id, usuario_id: uid, texto, creado_en: this.marca(), respuesta: null, respondido_por: null, respondido_en: null };
+    this.db.consultas.push(q);
+    const autor = this.usuario(uid).nombre;
+    // Avisa a los responsables que pueden responder (propietarios y editores).
+    for (const r of this.db.responsables.filter((x) => x.capacitacion_id === cap.id && PERMISOS[x.rol].recordar))
+      this.notificar(r.usuario_id, 'Nueva pregunta de un colaborador', `${autor} preguntó en «${cap.titulo}»: «${texto.slice(0, 120)}»`, `#/capacitaciones/${cap.id}/seguimiento`);
+    this.auditar(uid, 'enviar_pregunta', cap.id, `${autor} envió una pregunta`);
+    this.guardar();
+    return this.consultaConNombres(q);
+  }
+
+  consultasCapacitacion(uid, capId) {
+    this.exigir(uid, capId, 'ver');
+    return this.db.consultas
+      .filter((q) => q.capacitacion_id === capId)
+      .sort((x, y) => (!!x.respuesta === !!y.respuesta ? y.creado_en.localeCompare(x.creado_en) : x.respuesta ? 1 : -1))
+      .map((q) => this.consultaConNombres(q));
+  }
+
+  responderConsulta(uid, capId, consultaId, texto) {
+    const { cap } = this.exigir(uid, capId, 'recordar');
+    const q = this.db.consultas.find((x) => x.id === consultaId && x.capacitacion_id === capId);
+    if (!q) throw new AccesoDenegado();
+    texto = String(texto || '').trim().slice(0, 2000);
+    if (!texto) throw new ErrorNegocio('Escribe la respuesta.');
+    q.respuesta = texto;
+    q.respondido_por = uid;
+    q.respondido_en = this.marca();
+    this.notificar(q.usuario_id, 'Respondieron tu pregunta', `En «${cap.titulo}»: «${texto.slice(0, 120)}»`, `#/mis-capacitaciones/${q.asignacion_id}`);
+    this.auditar(uid, 'responder_pregunta', capId, `Respondió la pregunta de ${this.usuario(q.usuario_id).nombre}`);
+    this.guardar();
+    return true;
   }
 
   // ───────────────────────── colaboradores / nuevos ingresos ─────────────────────────

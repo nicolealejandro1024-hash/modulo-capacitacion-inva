@@ -106,8 +106,10 @@ export function vistaSeguimiento(capId) {
       </div>
       ${s.filas.length ? `<div class="tabla-wrap"><table><thead><tr><th>Colaborador</th><th>Área</th><th>${cap.modalidad === 'presencial' ? 'Asistencia' : 'Videos vistos'}</th><th>Cuestionario</th><th>Firma</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="tbody">${filas}</tbody></table></div><div class="vacio small" id="sin-resultados" hidden>No hay personas con ese filtro.</div>` : '<div class="vacio">Aún no hay personas asignadas.</div>'}
     </div>
-    ${sesionesHtml}`,
+    ${sesionesHtml}
+    ${panelPreguntasAdmin(capId, permisos)}`,
     montar: (root) => {
+      montarPreguntasAdmin(root, capId);
       let filtro = 'todos';
       const aplicar = () => {
         const q = root.querySelector('#buscar').value.trim().toLowerCase();
@@ -174,6 +176,44 @@ export function vistaSeguimiento(capId) {
       });
     },
   };
+}
+
+// ───────────────────────── Preguntas de los colaboradores ─────────────────────────
+function panelPreguntasAdmin(capId, permisos) {
+  const consultas = api.consultasCapacitacion(sesion.uid, capId);
+  const sinResponder = consultas.filter((q) => !q.respuesta).length;
+  const items = consultas
+    .map(
+      (q) => `<div class="consulta">
+        <div class="fila" style="justify-content:space-between"><p><b>${esc(q.autor)}</b> <span class="small muted">· ${esc(fmtFechaHora(q.creado_en))}</span></p>
+          ${q.respuesta ? '<span class="pill verde">Respondida</span>' : '<span class="pill naranja">Sin responder</span>'}</div>
+        <p>${esc(q.texto)}</p>
+        ${
+          q.respuesta
+            ? `<div class="respuesta"><p class="small"><b>${esc(q.respondido_por_nombre)}</b> <span class="muted">· ${esc(fmtFechaHora(q.respondido_en))}</span></p><p>${esc(q.respuesta)}</p></div>`
+            : permisos.recordar
+              ? `<form class="pila" data-responder="${esc(q.id)}"><label class="sr-only" for="resp-${esc(q.id)}">Respuesta</label><textarea id="resp-${esc(q.id)}" maxlength="2000" placeholder="Escribe la respuesta…" required></textarea><button class="btn btn-primario btn-sm" style="align-self:flex-start">Responder</button></form>`
+              : ''
+        }
+      </div>`
+    )
+    .join('');
+  return `<div class="tarjeta pila" id="preguntas">
+    <div class="fila" style="justify-content:space-between"><h2>Preguntas de los colaboradores</h2>${sinResponder ? `<span class="pill naranja">${sinResponder} sin responder</span>` : ''}</div>
+    ${items || '<div class="vacio small">Aún no hay preguntas sobre esta capacitación.</div>'}
+  </div>`;
+}
+
+function montarPreguntasAdmin(root, capId) {
+  root.querySelectorAll('[data-responder]').forEach((f) =>
+    f.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const ok = intentar(() => api.responderConsulta(sesion.uid, capId, f.dataset.responder, f.querySelector('textarea').value), 'Respuesta enviada. Se le avisó al colaborador.');
+      if (!ok) return;
+      app.refrescar();
+      setTimeout(() => document.getElementById('preguntas')?.scrollIntoView({ block: 'start' }), 50);
+    })
+  );
 }
 
 // ───────────────────────── Detalle por persona ─────────────────────────

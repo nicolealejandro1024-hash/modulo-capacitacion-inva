@@ -227,6 +227,10 @@ main { flex: 1; min-width: 0; padding: 32px 40px 64px; }
 .check { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; padding: 6px 0; }
 .check input { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--naranja); flex-shrink: 0; }
 
+/* Preguntas */
+.consulta { border: 1px solid var(--borde); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; background: #fcfcfd; }
+.consulta .respuesta { border-left: 3px solid var(--verde); background: var(--verde-bg); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+
 /* Tablas */
 .tabla-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
