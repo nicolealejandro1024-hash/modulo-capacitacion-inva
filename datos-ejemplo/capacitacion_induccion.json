@@ -1,0 +1,46 @@
+{
+  "_nota": "Datos de ejemplo. Las preguntas y plazos son editables; validar con RR.HH./SST.",
+  "titulo": "Inducción INVA",
+  "descripcion": "Conoce la empresa, nuestros proyectos en Perú y Chile, las políticas internas y cómo usar el Portal.",
+  "categoria": "induccion",
+  "obligatoria": true,
+  "modalidad": "virtual",
+  "capacitador": { "nombre": "Nicole Alejandro", "cargo": "Recursos Humanos" },
+  "duracion_min": 28,
+  "dias_para_completar": 7,
+  "asignar_nuevos_ingresos": true,
+  "nota_minima": 2,
+  "intentos_max": 3,
+  "responsables": [
+    { "usuario": "nicole.alejandro@invaglobal.com", "rol": "propietario" },
+    { "usuario": "[CORREO DE LA SEGUNDA PERSONA]", "rol": "editor" }
+  ],
+  "videos": [
+    { "orden": 1, "titulo": "Bienvenida: quiénes somos", "duracion_seg": 270, "url": "[URL]" },
+    { "orden": 2, "titulo": "Nuestros proyectos en Perú y Chile", "duracion_seg": 550, "url": "[URL]" },
+    { "orden": 3, "titulo": "Políticas internas y Portal INVA", "duracion_seg": 860, "url": "[URL]" }
+  ],
+  "cuestionario": [
+    {
+      "texto": "¿En qué sección del Portal INVA solicitas un documento a RR.HH.?",
+      "opciones": ["Beneficios", "Solicitar Documento", "Mis Boletas"],
+      "correcta": 1
+    },
+    {
+      "texto": "¿En qué países desarrolla proyectos INVA?",
+      "opciones": ["Solo en Perú", "Perú y Chile", "Perú, Chile y Colombia"],
+      "correcta": 1
+    },
+    {
+      "texto": "Si ocurre un incidente de seguridad en campo, ¿qué haces primero?",
+      "opciones": ["Esperar al final del día", "Reportarlo de inmediato a tu supervisor", "Comentarlo solo con tus compañeros"],
+      "correcta": 1
+    }
+  ],
+  "recordatorios": {
+    "automaticos": true,
+    "cada_dias": 3,
+    "aviso_dia_antes": true,
+    "copia_jefe_directo": true
+  }
+}

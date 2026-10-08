@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Mis capacitaciones</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F5F6F8}
+a{color:#B4500F}a:hover{color:#8A3B09}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #151B27; min-height: 100vh; display: flex; flex-direction: column; background: #F5F6F8">
+
+<header style="background: #151B27; color: #FFFFFF; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 32px">
+<div style="display: flex; align-items: center; gap: 16px">
+<div style="background: #FFFFFF; color: #151B27; font-weight: 800; font-size: 20px; letter-spacing: 1px; padding: 8px 18px; border-radius: 8px">INVA</div>
+<span style="color: #A7AFBD; font-size: 15px">Administración</span>
+<span style="background: #FDE6D3; color: #9A4310; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 999px">Administrador RR.HH.</span>
+</div>
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="width: 40px; height: 40px; border-radius: 50%; background: #2A3242; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px">NA</div>
+<div style="display: flex; flex-direction: column">
+<span style="font-weight: 700; font-size: 15px">Nicole Alejandro</span>
+<span style="color: #A7AFBD; font-size: 13px">Recursos Humanos</span>
+</div>
+</div>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; flex: 1">
+
+<nav aria-label="Menú principal" style="background: #151B27; flex: 1 1 240px; max-width: 280px; padding: 20px 14px; display: flex; flex-direction: column; gap: 4px; box-sizing: border-box">
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; color: #D5DAE2; text-decoration: none; font-weight: 600; font-size: 15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>Dashboard</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; color: #D5DAE2; text-decoration: none; font-weight: 600; font-size: 15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"></circle><path d="M2 21c0-4 3-6 7-6s7 2 7 6"></path><path d="M16 4a4 4 0 0 1 0 8M22 21c0-3-2-5-4-5.5"></path></svg>Colaboradores</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; color: #D5DAE2; text-decoration: none; font-weight: 600; font-size: 15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5M9 13h6M9 17h6"></path></svg>Documentos / Firma</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; color: #D5DAE2; text-decoration: none; font-weight: 600; font-size: 15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h3M4 12h3M4 18h3M10 6h10M10 12h10M10 18h10"></path></svg>Seguimiento</a>
+<a href="Seguimiento.dc.html" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; color: #D5DAE2; text-decoration: none; font-weight: 600; font-size: 15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="13" rx="2"></rect><path d="M10 8l5 2.5-5 2.5z"></path><path d="M8 21h8"></path></svg>Capacitaciones<span style="margin-left: auto; background: #FDE6D3; color: #9A4310; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 999px">NUEVO</span></a>
+<div style="height: 1px; background: #2A3242; margin: 14px 6px"></div>
+<span style="color: #8A93A3; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; padding: 4px 14px 8px">MI CUENTA</span>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; color: #D5DAE2; text-decoration: none; font-weight: 600; font-size: 15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="1"></rect><path d="M12 7v10M9.5 9.5c0-1 1-1.5 2.5-1.5s2.5.8 2.5 1.8-1 1.4-2.5 1.7-2.5.8-2.5 1.8 1 1.7 2.5 1.7 2.5-.6 2.5-1.5"></path></svg>Mis Boletas</a>
+<a href="#" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; color: #D5DAE2; text-decoration: none; font-weight: 600; font-size: 15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"></path><path d="M14 3v5h5"></path></svg>Mis Documentos</a>
+<a href="Main.dc.html" aria-current="page" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; color: #FFFFFF; background: #B9550F; text-decoration: none; font-weight: 700; font-size: 15px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 9l10-5 10 5-10 5z"></path><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"></path></svg>Mis Capacitaciones</a>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; padding: 36px 40px 56px; box-sizing: border-box">
+<div style="max-width: 1120px; display: flex; flex-direction: column; gap: 28px">
+
+<sc-if value="{{isList}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; gap: 28px">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h1 style="margin: 0; font-size: 32px; font-weight: 800">Mis capacitaciones</h1>
+<p style="margin: 0; color: #4A5363; font-size: 16px">Mira los videos de cada capacitación y, al terminar, responde el cuestionario. RR.HH. recibe tu resultado automáticamente.</p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px">
+<div style="background: #FFFFFF; border: 1px solid #E4E7EC; border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+<span style="color: #4A5363; font-size: 14px; font-weight: 600">Asignadas</span>
+<span style="font-size: 30px; font-weight: 800">{{stats.total}}</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E4E7EC; border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+<span style="color: #4A5363; font-size: 14px; font-weight: 600">Completadas</span>
+<span style="font-size: 30px; font-weight: 800; color: #1E6B41">{{stats.done}}</span>
+</div>
+<div style="background: #FFFFFF; border: 1px solid #E4E7EC; border-radius: 14px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+<span style="color: #4A5363; font-size: 14px; font-weight: 600">Por completar</span>
+<span style="font-size: 30px; font-weight: 800; color: #9A4310">{{stats.pending}}</span>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px">
+<sc-for list="{{courses}}" as="c" hint-placeholder-count="4">
+<article style="background: #FFFFFF; border: 1px solid #E4E7EC; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column">
+<div style="{{c.thumbStyle}}">
+<span style="align-self: flex-start; background: rgba(255,255,255,0.16); color: #FFFFFF; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px">{{c.tag}}</span>
+<div style="width: 52px; height: 52px; border-radius: 50%; background: #FFFFFF; display: flex; align-items: center; justify-content: center; align-self: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="#151B27"><path d="M8 5v14l11-7z"></path></svg></div>
+</div>
+<div style="padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 10px; flex: 1">
+<span style="{{c.pillStyle}}">{{c.status}}</span>
+<h2 style="margin: 0; font-size: 18px; font-weight: 800; line-height: 1.3">{{c.title}}</h2>
+<p style="margin: 0; color: #4A5363; font-size: 14px; line-height: 1.5; flex: 1">{{c.desc}}</p>
+<span style="color: #4A5363; font-size: 13px; font-weight: 600">{{c.meta}}</span>
+<div style="height: 8px; background: #EEF0F3; border-radius: 999px; overflow: hidden"><div style="{{c.barStyle}}"></div></div>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+<span style="color: #4A5363; font-size: 13px">{{c.due}}</span>
+<button onClick="{{c.open}}" style="background: #151B27; color: #FFFFFF; border: 0; border-radius: 10px; padding: 12px 16px; font-size: 14px; font-weight: 700; cursor: pointer; min-height: 44px">{{c.cta}}</button>
+</div>
+</div>
+</article>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isVideo}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 22px">
+<button onClick="{{goList}}" style="align-self: flex-start; background: transparent; border: 0; color: #B4500F; font-size: 15px; font-weight: 700; cursor: pointer; padding: 10px 0; min-height: 44px">← Volver a mis capacitaciones</button>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="color: #9A4310; font-size: 13px; font-weight: 800; letter-spacing: 1px">{{course.tagUpper}}</span>
+<h1 style="margin: 0; font-size: 30px; font-weight: 800">{{course.title}}</h1>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+<div style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="aspect-ratio: 16 / 9; background: #0E131C; border-radius: 16px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden">
+<div style="width: 76px; height: 76px; border-radius: 50%; background: rgba(255,255,255,0.95); display: flex; align-items: center; justify-content: center"><svg width="28" height="28" viewBox="0 0 24 24" fill="#151B27"><path d="M8 5v14l11-7z"></path></svg></div>
+<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px; display: flex; flex-direction: column; gap: 10px; background: rgba(14,19,28,0.85)">
+<span style="color: #FFFFFF; font-size: 15px; font-weight: 600">Video {{videoNum}} de {{videoTotal}} · {{video.title}}</span>
+<div style="height: 5px; background: #3A4354; border-radius: 999px"><div style="width: 38%; height: 100%; background: #F08A3E; border-radius: 999px"></div></div>
+</div>
+</div>
+<p style="margin: 0; color: #4A5363; font-size: 15px; line-height: 1.6">Aquí va el video que suba RR.HH. (YouTube, Vimeo, SharePoint o archivo propio). El botón para avanzar se habilita cuando la persona termina de verlo.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+<sc-if value="{{hasNextVideo}}" hint-placeholder-val="{{true}}">
+<button onClick="{{nextVideo}}" style="background: #B9550F; color: #FFFFFF; border: 0; border-radius: 10px; padding: 14px 22px; font-size: 15px; font-weight: 700; cursor: pointer; min-height: 48px">Siguiente video →</button>
+</sc-if>
+<sc-if value="{{isLastVideo}}" hint-placeholder-val="{{false}}">
+<button onClick="{{goQuiz}}" style="background: #B9550F; color: #FFFFFF; border: 0; border-radius: 10px; padding: 14px 22px; font-size: 15px; font-weight: 700; cursor: pointer; min-height: 48px">Terminé · Ir al cuestionario →</button>
+</sc-if>
+<span style="color: #4A5363; font-size: 14px">El cuestionario se desbloquea al terminar todos los videos.</span>
+</div>
+</div>
+<aside style="flex: 1 1 280px; background: #FFFFFF; border: 1px solid #E4E7EC; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 8px">
+<h2 style="margin: 0 0 6px; font-size: 16px; font-weight: 800">Contenido</h2>
+<sc-for list="{{videos}}" as="v" hint-placeholder-count="3">
+<button onClick="{{v.pick}}" style="{{v.rowStyle}}">
+<span style="{{v.badgeStyle}}">{{v.badge}}</span>
+<span style="display: flex; flex-direction: column; gap: 2px; text-align: left">
+<span style="font-size: 14px; font-weight: 700; color: #151B27">{{v.title}}</span>
+<span style="font-size: 13px; color: #4A5363">{{v.dur}}</span>
+</span>
+</button>
+</sc-for>
+<div style="{{quizRowStyle}}">
+<span style="width: 30px; height: 30px; border-radius: 50%; background: #FDE6D3; color: #9A4310; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 11l3 3 8-8"></path><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 14px; font-weight: 700">Cuestionario final</span>
+<span style="font-size: 13px; color: #4A5363">{{quizLabel}}</span>
+</span>
+</div>
+</aside>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isQuiz}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 22px; max-width: 780px">
+<button onClick="{{backToVideo}}" style="align-self: flex-start; background: transparent; border: 0; color: #B4500F; font-size: 15px; font-weight: 700; cursor: pointer; padding: 10px 0; min-height: 44px">← Volver a los videos</button>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="color: #9A4310; font-size: 13px; font-weight: 800; letter-spacing: 1px">CUESTIONARIO</span>
+<h1 style="margin: 0; font-size: 30px; font-weight: 800">{{course.title}}</h1>
+<p style="margin: 0; color: #4A5363; font-size: 15px">{{questionCount}} preguntas · apruebas con 2 correctas. Tus respuestas llegan a RR.HH. al enviarlas.</p>
+</div>
+<sc-for list="{{questions}}" as="q" hint-placeholder-count="3">
+<fieldset style="background: #FFFFFF; border: 1px solid #E4E7EC; border-radius: 16px; padding: 22px; margin: 0; display: flex; flex-direction: column; gap: 10px">
+<legend style="float: left; width: 100%; padding: 0; margin: 0 0 6px; font-size: 17px; font-weight: 700; line-height: 1.4">{{q.num}}. {{q.text}}</legend>
+<sc-for list="{{q.options}}" as="o" hint-placeholder-count="3">
+<button onClick="{{o.pick}}" aria-pressed="{{o.selected}}" style="{{o.style}}">
+<span style="{{o.dotStyle}}"></span>
+<span>{{o.label}}</span>
+</button>
+</sc-for>
+</fieldset>
+</sc-for>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px">
+<button onClick="{{submit}}" disabled="{{notReady}}" style="{{submitStyle}}">Enviar respuestas</button>
+<span style="color: #4A5363; font-size: 14px">{{answeredLabel}}</span>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{isDone}}" hint-placeholder-val="{{false}}">
+<div style="background: #FFFFFF; border: 1px solid #E4E7EC; border-radius: 20px; padding: 48px 40px; max-width: 640px; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center">
+<div style="width: 72px; height: 72px; border-radius: 50%; background: #E6F4EC; color: #1E6B41; display: flex; align-items: center; justify-content: center"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M5 12l5 5 9-10"></path></svg></div>
+<h1 style="margin: 0; font-size: 28px; font-weight: 800">¡Cuestionario enviado!</h1>
+<p style="margin: 0; font-size: 18px; font-weight: 700; color: #151B27">Obtuviste {{score}} de {{questionCount}} · {{verdict}}</p>
+<p style="margin: 0; color: #4A5363; font-size: 15px; line-height: 1.6">RR.HH. ya puede ver que completaste <strong>{{course.title}}</strong> y tu resultado en el panel de Seguimiento.</p>
+<button onClick="{{goList}}" style="margin-top: 10px; background: #151B27; color: #FFFFFF; border: 0; border-radius: 10px; padding: 14px 22px; font-size: 15px; font-weight: 700; cursor: pointer; min-height: 48px">Volver a mis capacitaciones</button>
+</div>
+</sc-if>
+
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { screen: 'list', courseId: 'ind', vid: 0, maxVid: 0, answers: {}, score: 0, completed: {} };
+  }
+  renderVals() {
+    var s = this.state;
+    var self = this;
+    var base = [
+      { id: 'ind', tag: 'Obligatoria · Inducción', title: 'Inducción INVA', desc: 'Conoce la empresa, nuestros proyectos en Perú y Chile, las políticas internas y cómo usar el Portal.', meta: '3 videos · 28 min · Cuestionario', progress: 33, due: 'Vence 14 oct', thumb: '#1F2A3D' },
+      { id: 'sst', tag: 'Obligatoria · SST', title: 'Seguridad y Salud en el Trabajo', desc: 'Normas básicas de SST, uso de EPP y cómo reportar un incidente.', meta: '2 videos · 20 min · Cuestionario', progress: 0, due: 'Vence 21 oct', thumb: '#1D4A47' },
+      { id: 'etica', tag: 'Obligatoria · Cumplimiento', title: 'Código de ética y conducta', desc: 'Valores de INVA, conflictos de interés y canal de denuncias.', meta: '1 video · 12 min · Cuestionario', progress: 0, due: 'Vence 31 oct', thumb: '#4A2F5C' },
+      { id: 'ia', tag: 'Opcional · Desarrollo', title: 'IA en el trabajo con Claude', desc: 'Cómo usar IA en tus tareas diarias de forma segura y efectiva.', meta: '4 videos · 35 min · Cuestionario', progress: 100, due: 'Completado 2 oct', thumb: '#6B3A1E' }
+    ];
+    var pills = {
+      curso: 'align-self: flex-start; background: #FFF1E6; color: #9A4310; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px',
+      pend: 'align-self: flex-start; background: #EEF0F3; color: #3E4757; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px',
+      ok: 'align-self: flex-start; background: #E6F4EC; color: #1E6B41; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px'
+    };
+    var courses = base.map(function (c) {
+      var p = s.completed[c.id] ? 100 : c.progress;
+      var kind = p >= 100 ? 'ok' : (p > 0 ? 'curso' : 'pend');
+      return {
+        id: c.id, tag: c.tag, title: c.title, desc: c.desc, meta: c.meta,
+        tagUpper: c.tag.toUpperCase(),
+        due: s.completed[c.id] ? 'Completado hoy' : c.due,
+        status: kind === 'ok' ? 'Completado' : (kind === 'curso' ? 'En curso · ' + p + '%' : 'Pendiente'),
+        cta: kind === 'ok' ? 'Ver de nuevo' : (kind === 'curso' ? 'Continuar' : 'Comenzar'),
+        pillStyle: pills[kind],
+        barStyle: 'height: 100%; width: ' + p + '%; background: ' + (kind === 'ok' ? '#2E8B57' : '#E8762D') + '; border-radius: 999px',
+        thumbStyle: 'background: ' + c.thumb + '; aspect-ratio: 16 / 8; padding: 14px; display: flex; flex-direction: column; justify-content: space-between',
+        open: function () { self.setState({ screen: 'video', courseId: c.id, vid: 0, maxVid: 0, answers: {} }); }
+      };
+    });
+    var course = courses.filter(function (c) { return c.id === s.courseId; })[0];
+    var vlist = [
+      { title: 'Bienvenida: quiénes somos', dur: '4:30' },
+      { title: 'Nuestros proyectos en Perú y Chile', dur: '9:10' },
+      { title: 'Políticas internas y Portal INVA', dur: '14:20' }
+    ];
+    var videos = vlist.map(function (v, i) {
+      var active = i === s.vid;
+      var done = i < s.maxVid || (i === s.maxVid && s.screen !== 'video');
+      return {
+        title: v.title, dur: v.dur,
+        badge: done && !active ? '✓' : String(i + 1),
+        rowStyle: 'display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; cursor: pointer; min-height: 52px; font-family: inherit; text-align: left; border: 1px solid ' + (active ? '#F3C6A3' : 'transparent') + '; background: ' + (active ? '#FFF4EC' : 'transparent'),
+        badgeStyle: 'width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; background: ' + (done && !active ? '#E6F4EC' : (active ? '#B9550F' : '#EEF0F3')) + '; color: ' + (done && !active ? '#1E6B41' : (active ? '#FFFFFF' : '#3E4757')),
+        pick: function () { if (i <= s.maxVid) self.setState({ vid: i }); }
+      };
+    });
+    var qs = [
+      { text: '¿En qué sección del Portal INVA solicitas un documento a RR.HH.?', options: ['Beneficios', 'Solicitar Documento', 'Mis Boletas'], correct: 1 },
+      { text: '¿En qué países desarrolla proyectos INVA?', options: ['Solo en Perú', 'Perú y Chile', 'Perú, Chile y Colombia'], correct: 1 },
+      { text: 'Si ocurre un incidente de seguridad en campo, ¿qué haces primero?', options: ['Esperar al final del día', 'Reportarlo de inmediato a tu supervisor', 'Comentarlo solo con tus compañeros'], correct: 1 }
+    ];
+    var answered = Object.keys(s.answers).length;
+    var questions = qs.map(function (q, qi) {
+      return {
+        num: qi + 1, text: q.text,
+        options: q.options.map(function (label, oi) {
+          var sel = s.answers[qi] === oi;
+          return {
+            label: label, selected: sel ? 'true' : 'false',
+            style: 'display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-radius: 12px; cursor: pointer; min-height: 48px; font-family: inherit; font-size: 15px; text-align: left; color: #151B27; border: 1.5px solid ' + (sel ? '#B9550F' : '#E4E7EC') + '; background: ' + (sel ? '#FFF4EC' : '#FFFFFF'),
+            dotStyle: 'width: 18px; height: 18px; flex-shrink: 0; border-radius: 50%; box-sizing: border-box; border: ' + (sel ? '6px solid #B9550F' : '2px solid #8A93A3') + '; background: #FFFFFF',
+            pick: function () { var a = Object.assign({}, s.answers); a[qi] = oi; self.setState({ answers: a }); }
+          };
+        })
+      };
+    });
+    var notReady = answered < qs.length;
+    var done = courses.filter(function (c) { return c.status === 'Completado'; }).length;
+    return {
+      isList: s.screen === 'list', isVideo: s.screen === 'video', isQuiz: s.screen === 'quiz', isDone: s.screen === 'done',
+      courses: courses, course: course,
+      stats: { total: courses.length, done: done, pending: courses.length - done },
+      videos: videos, video: vlist[s.vid], videoNum: s.vid + 1, videoTotal: vlist.length,
+      hasNextVideo: s.vid < vlist.length - 1, isLastVideo: s.vid === vlist.length - 1,
+      quizLabel: s.maxVid >= vlist.length - 1 ? 'Disponible al terminar el último video' : 'Bloqueado hasta ver los videos',
+      quizRowStyle: 'display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-top: 6px; border-top: 1px solid #EEF0F3',
+      questions: questions, questionCount: qs.length,
+      answeredLabel: answered + ' de ' + qs.length + ' respondidas',
+      notReady: notReady,
+      submitStyle: 'border: 0; border-radius: 10px; padding: 14px 24px; font-size: 15px; font-weight: 700; min-height: 48px; cursor: ' + (notReady ? 'not-allowed' : 'pointer') + '; background: ' + (notReady ? '#D5DAE2' : '#B9550F') + '; color: ' + (notReady ? '#4A5363' : '#FFFFFF'),
+      score: s.score, verdict: s.score >= 2 ? 'Aprobado' : 'Debes repetir el cuestionario',
+      goList: function () { self.setState({ screen: 'list' }); },
+      nextVideo: function () { var n = s.vid + 1; self.setState({ vid: n, maxVid: Math.max(n, s.maxVid) }); },
+      goQuiz: function () { self.setState({ screen: 'quiz', answers: {} }); },
+      backToVideo: function () { self.setState({ screen: 'video' }); },
+      submit: function () {
+        if (notReady) return;
+        var sc = 0;
+        qs.forEach(function (q, i) { if (s.answers[i] === q.correct) sc++; });
+        var comp = Object.assign({}, s.completed);
+        if (sc >= 2) comp[s.courseId] = true;
+        self.setState({ screen: 'done', score: sc, completed: comp });
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
