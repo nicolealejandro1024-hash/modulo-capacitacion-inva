@@ -36,7 +36,7 @@ export class ErrorNegocio extends Error {
 const copia = (x) => JSON.parse(JSON.stringify(x));
 
 export class Api {
-  constructor({ storage = null, clave = 'inva-capacitaciones-v1', ahora = () => new Date() } = {}) {
+  constructor({ storage = null, clave = 'inva-capacitaciones-v2', ahora = () => new Date() } = {}) {
     this.storage = storage;
     this.clave = clave;
     this._ahora = ahora;
@@ -204,7 +204,7 @@ export class Api {
     // Lo que le falta hacer a la persona (null = no tiene nada que hacer en el portal).
     let falta = null;
     if (completado) falta = null;
-    else if (!contenidoOk) falta = cap.modalidad === 'presencial' ? 'confirmar tu asistencia' : enVivo ? (tieneCuestionario ? 'responder el cuestionario después de la reunión' : null) : 'ver los videos';
+    else if (!contenidoOk) falta = cap.modalidad === 'presencial' ? null : enVivo ? (tieneCuestionario ? 'responder el cuestionario después de la reunión' : null) : 'ver los videos';
     else if (!cuestionarioOk) falta = 'responder el cuestionario';
     else if (!firmado) falta = 'firmar tu asistencia';
 
@@ -334,7 +334,7 @@ export class Api {
     const r = this.resumen(a);
     if (!r.tieneCuestionario) throw new ErrorNegocio('Esta capacitación no tiene cuestionario.');
     if (!r.contenidoOk)
-      throw new ErrorNegocio(cap.modalidad === 'presencial' ? 'Primero confirma tu asistencia.' : cap.modalidad === 'en_vivo' ? 'El cuestionario se habilita cuando empieza la reunión.' : 'Primero termina todos los videos.');
+      throw new ErrorNegocio(cap.modalidad === 'presencial' ? 'El cuestionario se habilita cuando RR.HH. registre tu asistencia.' : cap.modalidad === 'en_vivo' ? 'El cuestionario se habilita cuando empieza la reunión.' : 'Primero termina todos los videos.');
     if (r.aprobado) throw new ErrorNegocio('Ya aprobaste este cuestionario.');
     if (r.intentosRestantes === 0) throw new ErrorNegocio('Ya no te quedan intentos. Comunícate con RR.HH.');
     for (const p of cap.preguntas) {
@@ -387,39 +387,6 @@ export class Api {
     this.auditar(uid, 'firmar_asistencia', cap.id, `${u.nombre} firmó su asistencia`);
     this.guardar();
     return this.miCapacitacion(uid, asigId);
-  }
-
-  infoSesionQR(uid, token) {
-    this.exigirSesion(uid);
-    const s = this.db.sesiones.find((x) => x.token_qr === token);
-    if (!s) throw new ErrorNegocio('El código QR no es válido.');
-    const cap = this.cap(s.capacitacion_id);
-    const a = this.db.asignaciones.find((x) => x.capacitacion_id === cap.id && x.colaborador_id === uid);
-    const asis = a ? this.db.asistencias.find((x) => x.asignacion_id === a.id) : null;
-    return {
-      sesion: { id: s.id, fecha: s.fecha, hora_inicio: s.hora_inicio, hora_fin: s.hora_fin, lugar: s.lugar },
-      capacitacion: { id: cap.id, titulo: cap.titulo, capacitador_nombre: cap.capacitador_nombre },
-      vigente: this.marca() <= s.qr_expira_en && cap.estado === 'publicada',
-      asignado: !!a,
-      asignacionId: a?.id || null,
-      yaRegistrado: !!asis && asis.tipo !== 'virtual',
-    };
-  }
-
-  confirmarAsistenciaQR(uid, token, dispositivo = '') {
-    const info = this.infoSesionQR(uid, token);
-    if (!info.vigente) throw new ErrorNegocio('Este código QR ya venció. Pide a RR.HH. que genere uno nuevo.');
-    if (!info.asignado) throw new ErrorNegocio('No estás asignado a esta capacitación. Comunícate con RR.HH.');
-    const s = this.db.sesiones.find((x) => x.token_qr === token);
-    let asis = this.db.asistencias.find((x) => x.asignacion_id === info.asignacionId);
-    if (asis && asis.tipo !== 'virtual') return info.asignacionId;
-    if (!asis) {
-      asis = { id: this.nuevoId('as'), asignacion_id: info.asignacionId, firma_id: null, firmado_en: null };
-      this.db.asistencias.push(asis);
-    }
-    Object.assign(asis, { sesion_id: s.id, tipo: 'presencial_qr', registrado_en: this.marca(), dispositivo: String(dispositivo).slice(0, 200) });
-    this.guardar();
-    return info.asignacionId;
   }
 
   // ───────────────────────── administración ─────────────────────────
@@ -712,7 +679,6 @@ export class Api {
         faltan: cuenta('en_curso', 'pendiente_firma', 'no_inicio'),
         vencidos: cuenta('vencido'),
       },
-      sesiones: this.db.sesiones.filter((s) => s.capacitacion_id === capId).map(copia),
     };
   }
 
@@ -739,7 +705,6 @@ export class Api {
         ? {
             ...copia(asis),
             firma: this.db.firmas.find((f) => f.id === asis.firma_id)?.imagen || null,
-            sesion: copia(this.db.sesiones.find((s) => s.id === asis.sesion_id) || null),
             reunion: copia((cap.reuniones || []).find((r) => r.id === asis.sesion_id) || null),
           }
         : null,
@@ -912,45 +877,6 @@ export class Api {
     this.guardar();
   }
 
-  // ───────────────────────── sesiones presenciales (QR) ─────────────────────────
-  crearSesion(uid, capId, { lugar = '', minutos = 60 } = {}) {
-    const { cap } = this.exigir(uid, capId, 'editar');
-    if (!['presencial', 'mixta'].includes(cap.modalidad)) throw new ErrorNegocio('Solo las capacitaciones presenciales o mixtas usan QR.');
-    if (cap.estado !== 'publicada') throw new ErrorNegocio('Publica la capacitación antes de generar el QR.');
-    const ahora = this.ahora();
-    const fin = new Date(ahora.getTime() + Math.max(5, Math.min(480, Number(minutos) || 60)) * 60000);
-    const hhmm = (d) => fechaHoraISO(d).slice(11, 16);
-    const token = globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36);
-    const s = { id: this.nuevoId('s'), capacitacion_id: capId, fecha: this.hoy(), hora_inicio: hhmm(ahora), hora_fin: hhmm(fin), lugar: String(lugar || cap.lugar).slice(0, 200), token_qr: token, qr_expira_en: fechaHoraISO(fin), creado_por: uid };
-    this.db.sesiones.push(s);
-    this.auditar(uid, 'crear_sesion_qr', capId, `Generó QR de asistencia (${s.hora_inicio}–${s.hora_fin})`);
-    this.guardar();
-    return copia(s);
-  }
-
-  estadoSesion(uid, capId, sesionId) {
-    const { cap } = this.exigir(uid, capId, 'ver');
-    const s = this.db.sesiones.find((x) => x.id === sesionId && x.capacitacion_id === capId);
-    if (!s) throw new AccesoDenegado();
-    const asistentes = this.db.asistencias
-      .filter((x) => x.sesion_id === s.id)
-      .map((x) => {
-        const a = this.db.asignaciones.find((y) => y.id === x.asignacion_id);
-        return { nombre: this.usuario(a.colaborador_id).nombre, area: this.usuario(a.colaborador_id).area, registrado_en: x.registrado_en, firmado: !!x.firmado_en };
-      })
-      .sort((a, b) => b.registrado_en.localeCompare(a.registrado_en));
-    return { sesion: copia(s), capacitacion: { id: cap.id, titulo: cap.titulo }, vigente: this.marca() <= s.qr_expira_en, asistentes, asignados: this.db.asignaciones.filter((a) => a.capacitacion_id === capId).length };
-  }
-
-  cerrarSesion(uid, capId, sesionId) {
-    this.exigir(uid, capId, 'editar');
-    const s = this.db.sesiones.find((x) => x.id === sesionId && x.capacitacion_id === capId);
-    if (!s) throw new AccesoDenegado();
-    s.qr_expira_en = this.marca();
-    this.auditar(uid, 'cerrar_sesion_qr', capId, 'Cerró la sesión de QR');
-    this.guardar();
-  }
-
   // ───────────────────────── registro de asistencia y exportación ─────────────────────────
   datosRegistro(uid, capId) {
     const { cap } = this.exigir(uid, capId, 'registro');
@@ -963,7 +889,6 @@ export class Api {
           ...f,
           asistencia: copia(asis),
           firma: asis ? this.db.firmas.find((x) => x.id === asis.firma_id)?.imagen || null : null,
-          sesion: asis ? copia(this.db.sesiones.find((s) => s.id === asis.sesion_id) || null) : null,
         };
       })
       .sort((a, b) => a.resumen.completadoEn.localeCompare(b.resumen.completadoEn));

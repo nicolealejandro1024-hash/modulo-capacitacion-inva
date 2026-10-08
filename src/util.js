@@ -75,7 +75,6 @@ export const ROLES_RESP = { propietario: 'Propietario', editor: 'Editor', solo_l
 export const MODOS_ASIGNACION = { todos: 'Todos los colaboradores', area: 'Por área', cargo: 'Por cargo', sede: 'Por sede', personas: 'Personas puntuales' };
 export const TIPOS_ASISTENCIA = {
   virtual: 'Virtual (videos)',
-  presencial_qr: 'Presencial (QR)',
   presencial_manual: 'Registrada por RR.HH.',
   teams: 'Lista de asistencia de Teams',
 };

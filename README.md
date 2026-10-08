@@ -21,7 +21,7 @@ Al entrar eliges un **usuario de demostración**. Prueba, por ejemplo:
 
 | Usuario | Para probar |
 |---|---|
-| **Nicole Alejandro** (Admin RR.HH.) | Propietaria de «Inducción INVA» y «Charla SST». Crea, edita, ve seguimiento, recordatorios, QR y registro. **No** ve «Inducción HC». |
+| **Nicole Alejandro** (Admin RR.HH.) | Propietaria de «Inducción INVA» y «Charla SST». Crea, edita, ve seguimiento, recordatorios y registro. **No** ve «Inducción HC». |
 | **Jorge Ramírez** (Jefe RR.HH.) | Propietario de «Inducción HC». Aunque es jefe de RR.HH., **no** ve «Inducción INVA» (permisos por capacitación). |
 | **Carla Mendoza** (Admin RR.HH.) | Editora de «Inducción INVA»: edita y envía recordatorios, pero no cambia responsables. |
 | **Renzo Castillo** (Colaborador) | Solo lectura del seguimiento de «Charla SST». |
@@ -44,7 +44,8 @@ y **restablecer los datos de ejemplo**. En el reproductor hay una velocidad **16
 - **Virtual en vivo (Teams):** se indica la fecha y hora de la reunión; la gente entra directo desde la invitación de Teams. Con cuestionario, queda completada al aprobarlo; sin cuestionario, RR.HH. registra la asistencia desde el Seguimiento (varias personas a la vez). Firma opcional y grabación opcional para quien faltó. Sirve también para capacitadores externos.
 - **Subir la lista de asistencia de Teams** (.csv o .xlsx tal como la descarga Teams): reconoce a cada persona por correo o nombre, muestra una vista previa y registra la asistencia automáticamente. Archivo de prueba: `datos-ejemplo/lista-asistencia-teams-ejemplo.csv`.
 - **«¿Tienes alguna pregunta?»** en cada capacitación: la duda llega a sus responsables y la respuesta vuelve con aviso en la campana.
-- Asistencia presencial por **QR** y aviso de datos personales (Ley 29733).
+- Charlas **presenciales**: RR.HH. marca la asistencia; luego la persona responde el cuestionario y firma.
+- Aviso de datos personales (Ley 29733).
 
 **RR.HH. / responsables – Capacitaciones**
 - Dashboard con «Capacitaciones pendientes» (solo cuenta las capacitaciones donde eres responsable).
@@ -59,7 +60,7 @@ y **restablecer los datos de ejemplo**. En el reproductor hay una velocidad **16
 - **Recordatorios automáticos** (tarea diaria): cada N días, 1 día antes (con copia opcional al jefe), al vencer
   (a la persona y a los responsables); nunca a quien completó y máximo 1 automático por día.
 - **Registro de asistencia** imprimible/PDF con logo, código correlativo, datos del capacitador, lista con DNI, nota y firma.
-- **QR de sesión presencial** con vigencia limitada, pantalla para proyectar y contador de asistentes en vivo.
+- **Registrar asistencia** en charlas presenciales y reuniones de Teams: marcar a varias personas a la vez (o subir la lista de Teams).
 - Auditoría: cada cambio (y cada intento de acceso sin permiso) queda con fecha, hora y persona.
 
 ## Estructura
@@ -83,7 +84,7 @@ npm test
 ```
 
 Comprueban, entre otras cosas, que un RR.HH. que no es responsable **no** puede ver el seguimiento, que no se puede
-adelantar un video, los intentos del cuestionario, la firma, el QR y las reglas de recordatorios.
+adelantar un video, los intentos del cuestionario, la firma, la asistencia presencial, la lista de Teams y las reglas de recordatorios.
 
 ## Siguiente paso: integrarlo al Portal INVA real
 

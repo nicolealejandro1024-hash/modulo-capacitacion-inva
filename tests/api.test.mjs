@@ -25,7 +25,7 @@ test('roles: solo lectura ve y descarga, pero no envía recordatorios ni edita',
   assert.ok(api.datosRegistro('c7', 'cap2'));
   assert.throws(() => api.enviarRecordatorios('c7', 'cap2', []), AccesoDenegado);
   assert.throws(() => api.guardarCapacitacion('c7', 'cap2', { titulo: 'x' }), AccesoDenegado);
-  assert.throws(() => api.crearSesion('c7', 'cap2', {}), AccesoDenegado);
+  assert.throws(() => api.registrarAsistencias('c7', 'cap2', []), AccesoDenegado);
 });
 
 test('editor edita pero no gestiona responsables; debe quedar un propietario', () => {
@@ -97,17 +97,16 @@ test('intentos agotados y habilitar intento extra', () => {
   assert.equal(api.enviarCuestionario('c7', b.id, { p4: 1, p5: 1 }).resumen.aprobado, true);
 });
 
-test('QR presencial: vigencia y asignación', () => {
+test('presencial: RR.HH. marca la asistencia; luego cuestionario y firma', () => {
   const api = nuevaApi();
-  const s = api.crearSesion('u1', 'cap2', { minutos: 30 });
-  // c4 está asignada a cap2.
-  const asigId = api.confirmarAsistenciaQR('c4', s.token_qr);
-  assert.equal(api.miCapacitacion('c4', asigId).resumen.presencialOk, true);
-  // c1 no está asignado.
-  assert.throws(() => api.confirmarAsistenciaQR('c1', s.token_qr), ErrorNegocio);
-  api.cerrarSesion('u1', 'cap2', s.id);
-  api.db.desfaseDias = 1;
-  assert.throws(() => api.confirmarAsistenciaQR('c3', s.token_qr), ErrorNegocio);
+  const a = api.db.asignaciones.find((x) => x.colaborador_id === 'c4' && x.capacitacion_id === 'cap2');
+  // Antes de que RR.HH. registre la asistencia: no hay nada que hacer ni recordatorios.
+  assert.equal(api.resumen(a).requiereAccion, false);
+  assert.throws(() => api.enviarCuestionario('c4', a.id, { p4: 1, p5: 1 }), ErrorNegocio);
+  api.registrarAsistencias('u1', 'cap2', [a.id]);
+  assert.ok(api.db.notificaciones.some((n) => n.usuario_id === 'c4' && n.titulo === 'Asistencia registrada'));
+  assert.equal(api.enviarCuestionario('c4', a.id, { p4: 1, p5: 1 }).resumen.estado, 'pendiente_firma');
+  assert.equal(api.firmarAsistencia('c4', a.id, { imagen: 'data:image/png;base64,x', aceptaDeclaracion: true }).resumen.estado, 'completado');
 });
 
 test('recordatorios: manual 1 por día, no a completados; automáticos 1 por día', () => {

@@ -1,4 +1,4 @@
-// Pantallas del rol Colaborador: Mis Capacitaciones, reproductor, cuestionario, firma y asistencia por QR.
+// Pantallas del rol Colaborador: Mis Capacitaciones, reproductor, cuestionario y firma.
 import { api, sesion, app, navegar, toast, intentar } from '../contexto.js';
 import { esc, fmtFecha, fmtFechaLarga, fmtFechaHora, fmtDuracion, diasEntre, ESTADOS, CATEGORIAS, MODALIDADES } from '../util.js';
 import { ico } from '../iconos.js';
@@ -49,7 +49,7 @@ export function vistaMisCapacitaciones() {
       <article class="card-cap">
         <div class="mini ${esc(c.categoria)}">
           <span class="tag">${c.obligatoria ? 'Obligatoria' : 'Opcional'} · ${esc(CATEGORIAS[c.categoria])}</span>
-          <span class="play" aria-hidden="true">${c.modalidad === 'presencial' ? ico.qr : c.modalidad === 'en_vivo' ? ico.camara : ico.play}</span>
+          <span class="play" aria-hidden="true">${c.modalidad === 'presencial' ? ico.personas : c.modalidad === 'en_vivo' ? ico.camara : ico.play}</span>
         </div>
         <div class="info">
           <div>${pillEstado(r)}</div>
@@ -107,7 +107,7 @@ export function vistaCurso(asigId, query) {
     });
   }
   if (cap.modalidad === 'presencial' || cap.modalidad === 'mixta')
-    pasos.push({ id: 'asistencia', titulo: 'Asistencia presencial', sub: r.presencialOk ? 'Registrada' : cap.modalidad === 'mixta' ? 'Escanea el QR o mira los videos' : 'Escanea el QR en la charla', ok: r.presencialOk, accesible: true, num: '⌖' });
+    pasos.push({ id: 'asistencia', titulo: 'Asistencia presencial', sub: r.presencialOk ? 'Registrada' : cap.modalidad === 'mixta' ? 'La registra RR.HH. (o mira los videos)' : 'La registra RR.HH.', ok: r.presencialOk, accesible: true, num: '⌖' });
   if (r.tieneCuestionario)
     pasos.push({ id: 'cuestionario', titulo: 'Cuestionario', sub: r.aprobado ? `Aprobado · ${r.mejorNota}/${r.totalPreguntas}` : `${r.totalPreguntas} preguntas`, ok: r.aprobado, accesible: r.contenidoOk, num: '?' });
   if (r.requiereFirma) pasos.push({ id: 'firma', titulo: 'Firma de asistencia', sub: r.firmado ? `Firmado ${fmtFecha(r.firmadoEn)}` : 'Declaración y firma', ok: r.firmado, accesible: r.contenidoOk && r.cuestionarioOk, num: '✎' });
@@ -407,21 +407,20 @@ function panelReunion(cap, asigId, d) {
 
 function panelAsistencia(cap, d) {
   const a = d.asistencia;
-  if (d.resumen.presencialOk)
+  const r = d.resumen;
+  if (r.presencialOk)
     return `<div class="tarjeta pila"><h2>Asistencia presencial</h2>
-      <div class="aviso ok">✓ Tu asistencia quedó registrada el ${esc(fmtFechaHora(a.registrado_en))} ${a.tipo === 'presencial_qr' ? '(con código QR)' : '(registrada por RR.HH.)'}.</div>
-      ${d.resumen.cuestionarioOk ? `<a class="btn btn-primario" href="#/mis-capacitaciones/${d.asignacion.id}?paso=firma">Ir a firmar →</a>` : `<a class="btn btn-primario" href="#/mis-capacitaciones/${d.asignacion.id}?paso=cuestionario">Responder el cuestionario →</a>`}
+      <div class="aviso ok">✓ RR.HH. registró tu asistencia el ${esc(fmtFechaHora(a.registrado_en))}.</div>
+      ${r.completado ? '' : r.cuestionarioOk ? `<a class="btn btn-primario" href="#/mis-capacitaciones/${d.asignacion.id}?paso=firma" style="align-self:flex-start">Ir a firmar →</a>` : `<a class="btn btn-primario" href="#/mis-capacitaciones/${d.asignacion.id}?paso=cuestionario" style="align-self:flex-start">Responder el cuestionario →</a>`}
     </div>`;
   return `<div class="tarjeta pila"><h2>Asistencia presencial</h2>
-    <p>Esta capacitación es <b>${esc(MODALIDADES[cap.modalidad].toLowerCase())}</b>${cap.lugar ? ` y se dicta en <b>${esc(cap.lugar)}</b>` : ''}.</p>
+    <p>Esta capacitación es <b>presencial</b>${cap.lugar ? ` y se dicta en <b>${esc(cap.lugar)}</b>` : ''}.</p>
     <ol class="muted" style="margin:0;padding-left:20px">
       <li>Asiste a la charla.</li>
-      <li>Escanea con tu celular el <b>código QR</b> que proyecta RR.HH.</li>
-      <li>Confirma tu asistencia con tu usuario del portal.</li>
-      <li>${cap.preguntas.length ? 'Responde el cuestionario y firma.' : 'Firma tu asistencia.'}</li>
+      <li>RR.HH. registra tu asistencia en el portal (no tienes que hacer nada).</li>
+      <li>${cap.preguntas.length ? 'Cuando esté registrada, entra aquí para responder el cuestionario y firmar.' : 'Cuando esté registrada, entra aquí para firmar.'} Te llegará un aviso.</li>
     </ol>
     ${cap.modalidad === 'mixta' ? '<p class="muted small">También puedes completarla viendo los videos.</p>' : ''}
-    <p class="muted small">¿No tienes celular? Pide a RR.HH. que marque tu asistencia; luego firmas aquí.</p>
   </div>`;
 }
 
@@ -567,30 +566,4 @@ function panelFin(cap, d) {
     <p class="muted small">RR.HH. ya puede ver tu resultado. Puedes volver a ver los videos cuando quieras.</p>
     <a class="btn btn-oscuro" href="#/mis-capacitaciones">Volver a mis capacitaciones</a>
   </div>`;
-}
-
-// ───────────────────────── Asistencia por QR ─────────────────────────
-export function vistaAsistenciaQR(token) {
-  const info = api.infoSesionQR(sesion.uid, token);
-  let cuerpo;
-  if (!info.asignado) cuerpo = `<div class="aviso error">No estás asignado a esta capacitación. Comunícate con RR.HH.</div>`;
-  else if (info.yaRegistrado)
-    cuerpo = `<div class="aviso ok">✓ Tu asistencia ya está registrada.</div><a class="btn btn-primario" href="#/mis-capacitaciones/${esc(info.asignacionId)}">Continuar →</a>`;
-  else if (!info.vigente) cuerpo = `<div class="aviso error">Este código QR ya venció. Pide a RR.HH. que genere uno nuevo.</div>`;
-  else cuerpo = `<button class="btn btn-primario" id="confirmar" style="font-size:16px">Confirmar mi asistencia</button>`;
-  return {
-    titulo: 'Confirmar asistencia',
-    html: `<div class="tarjeta pila" style="max-width:560px">
-      <span class="pill oscuro" style="align-self:flex-start">${ico.qr} Asistencia presencial</span>
-      <h1>${esc(info.capacitacion.titulo)}</h1>
-      <p class="muted">${esc(fmtFechaLarga(info.sesion.fecha))} · ${esc(info.sesion.hora_inicio)}–${esc(info.sesion.hora_fin)}${info.sesion.lugar ? ' · ' + esc(info.sesion.lugar) : ''}</p>
-      ${cuerpo}
-    </div>`,
-    montar: (root) => {
-      root.querySelector('#confirmar')?.addEventListener('click', () => {
-        const asigId = intentar(() => api.confirmarAsistenciaQR(sesion.uid, token, navigator.userAgent), 'Asistencia registrada');
-        if (asigId) navegar(`#/mis-capacitaciones/${asigId}`);
-      });
-    },
-  };
 }

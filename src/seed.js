@@ -281,15 +281,13 @@ export function crearSemilla(hoy) {
     fn(a);
   }
 
-  // Charla SST (cap2): Minería y SST; una sesión ya realizada.
+  // Charla SST (cap2): Minería y SST; la charla ya se dio y RR.HH. registró a dos asistentes.
   const c2 = capacitaciones[1];
-  const sesiones = [
-    { id: 's1', capacitacion_id: 'cap2', fecha: d(-1), hora_inicio: '09:00', hora_fin: '09:45', lugar: c2.lugar, token_qr: 'demo-sesion-pasada', qr_expira_en: ts(-1, 9, 45), creado_por: 'u1' },
-  ];
+
   for (const uid of ['c3', 'c4', 'c7']) {
     const a = asignar('cap2', uid, c2.fecha_limite, -6);
     if (uid === 'c3') {
-      asistencias.push({ id: `as${a}`, asignacion_id: a, sesion_id: 's1', tipo: 'presencial_qr', registrado_en: ts(-1, 9, 5), firma_id: null, firmado_en: null, dispositivo: 'Demo' });
+      asistencias.push({ id: `as${a}`, asignacion_id: a, sesion_id: null, tipo: 'presencial_manual', registrado_en: ts(-1, 10, 5), firma_id: null, firmado_en: null, dispositivo: 'Registrado por Nicole Alejandro' });
       rendir(a, c2, 2, 1, -1);
       const as = asistencias.find((x) => x.asignacion_id === a);
       firmas.push({ id: `f${a}`, usuario_id: 'c3', imagen: firmaDemo(4), creado_en: ts(-1, 9, 40) });
@@ -297,7 +295,7 @@ export function crearSemilla(hoy) {
       as.firmado_en = ts(-1, 9, 41);
       asignaciones.find((x) => x.id === a).completado_en = as.firmado_en;
     }
-    if (uid === 'c7') asistencias.push({ id: `as${a}`, asignacion_id: a, sesion_id: 's1', tipo: 'presencial_qr', registrado_en: ts(-1, 9, 7), firma_id: null, firmado_en: null, dispositivo: 'Demo' });
+    if (uid === 'c7') asistencias.push({ id: `as${a}`, asignacion_id: a, sesion_id: null, tipo: 'presencial_manual', registrado_en: ts(-1, 10, 5), firma_id: null, firmado_en: null, dispositivo: 'Registrado por Nicole Alejandro' });
   }
 
   // Seguridad de la información (cap5): en vivo por Teams; una reunión ya pasó.
@@ -345,7 +343,7 @@ export function crearSemilla(hoy) {
     respuestas,
     asistencias,
     firmas,
-    sesiones,
+    sesiones: [],
     recordatorios,
     notificaciones,
     auditoria,

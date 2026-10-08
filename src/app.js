@@ -2,9 +2,9 @@
 import { api, sesion, app, navegar, toast, confirmar } from './contexto.js';
 import { esc, fmtFechaLarga, fmtFechaHora, iniciales } from './util.js';
 import { ico } from './iconos.js';
-import { vistaMisCapacitaciones, vistaCurso, vistaAsistenciaQR } from './vistas/colaborador.js';
+import { vistaMisCapacitaciones, vistaCurso } from './vistas/colaborador.js';
 import { vistaDashboard, vistaListaCapacitaciones, vistaEditor, vistaColaboradores } from './vistas/admin.js';
-import { vistaSeguimiento, vistaDetallePersona, vistaRegistro, vistaQR } from './vistas/seguimiento.js';
+import { vistaSeguimiento, vistaDetallePersona, vistaRegistro } from './vistas/seguimiento.js';
 
 const raiz = document.getElementById('app');
 const CLAVE_DESTINO = 'inva-destino';
@@ -20,7 +20,6 @@ const DESCRIPCION_DEMO = {
 const rutas = [
   [/^#\/mis-capacitaciones$/, () => vistaMisCapacitaciones()],
   [/^#\/mis-capacitaciones\/([^/]+)$/, (m, q) => vistaCurso(m[1], q)],
-  [/^#\/asistencia\/([^/]+)$/, (m) => vistaAsistenciaQR(m[1])],
   [/^#\/dashboard$/, () => vistaDashboard(), { admin: true }],
   [/^#\/colaboradores$/, () => vistaColaboradores(), { admin: true }],
   [/^#\/capacitaciones$/, () => vistaListaCapacitaciones(), { admin: true }],
@@ -29,7 +28,6 @@ const rutas = [
   [/^#\/capacitaciones\/([^/]+)\/seguimiento$/, (m) => vistaSeguimiento(m[1]), { admin: true }],
   [/^#\/capacitaciones\/([^/]+)\/persona\/([^/]+)$/, (m) => vistaDetallePersona(m[1], m[2]), { admin: true }],
   [/^#\/capacitaciones\/([^/]+)\/registro$/, (m) => vistaRegistro(m[1]), { admin: true }],
-  [/^#\/capacitaciones\/([^/]+)\/qr\/([^/]+)$/, (m) => vistaQR(m[1], m[2]), { admin: true }],
 ];
 
 function inicioPara(perfil) {

@@ -1,4 +1,4 @@
-// Seguimiento (solo responsables), detalle por persona, registro de asistencia, exportación y QR presencial.
+// Seguimiento (solo responsables), detalle por persona, registro de asistencia y exportación.
 import { api, sesion, app, navegar, toast, intentar, modal, confirmar } from '../contexto.js';
 import { esc, fmtFecha, fmtFechaLarga, fmtFechaHora, fmtDuracion, ESTADOS, CATEGORIAS, MODALIDADES, ROLES_RESP, TIPOS_RECORDATORIO, TIPOS_ASISTENCIA } from '../util.js';
 import { pillEstado } from './colaborador.js';
@@ -33,26 +33,27 @@ export function vistaSeguimiento(capId) {
   const otras = api.listarCapacitacionesAdmin(uid).filter((x) => x.capacitacion.estado !== 'borrador');
   const pct = (n) => (k.asignados ? `${Math.round((n / k.asignados) * 100)} %` : '0 %');
   const pendientesRecordar = s.filas.filter((f) => FALTAN.includes(f.resumen.estado) && f.resumen.requiereAccion && !recordadoHoy(f));
-  // Reunión de Teams sin cuestionario: RR.HH. marca la asistencia (se puede seleccionar a varios).
-  const marcarAsistencia = cap.modalidad === 'en_vivo' && !cap.preguntas.length && permisos.editar;
+  // RR.HH. marca la asistencia (se puede seleccionar a varios): charlas presenciales/mixtas y reuniones de Teams sin cuestionario.
+  const marcarAsistencia = permisos.editar && (['presencial', 'mixta'].includes(cap.modalidad) || (cap.modalidad === 'en_vivo' && !cap.preguntas.length));
   const areas = [...new Set(s.filas.map((f) => f.colaborador.area))].sort((a, b) => a.localeCompare(b, 'es'));
 
   const filas = s.filas
     .map((f) => {
       const r = f.resumen;
-      const accion = marcarAsistencia
-        ? r.presencialOk
+      const botonAsistencia = !marcarAsistencia
+        ? ''
+        : r.presencialOk
           ? r.firmado
             ? ''
             : `<button class="btn btn-link btn-sm" data-quitar-asis="${esc(f.asignacion.id)}">Quitar asistencia</button>`
-          : `<button class="btn btn-sec btn-sm" data-marcar="${esc(f.asignacion.id)}">Marcar asistió</button>`
-        : !permisos.recordar
-        ? ''
-        : !r.requiereAccion
+          : `<button class="btn btn-sec btn-sm" data-marcar="${esc(f.asignacion.id)}">Marcar asistió</button>`;
+      const botonRecordar =
+        !permisos.recordar || !r.requiereAccion
           ? ''
           : recordadoHoy(f)
             ? `<span class="small muted">Recordatorio enviado · ${esc(fmtFechaHora(f.ultimoRecordatorio.enviado_en).split(',').pop().trim())}</span>`
             : `<button class="btn btn-sec btn-sm" data-recordar="${esc(f.asignacion.id)}">Enviar recordatorio</button>`;
+      const accion = botonAsistencia + botonRecordar;
       return `<tr data-estado="${r.estado}" data-area="${esc(f.colaborador.area)}" data-nombre="${esc(f.colaborador.nombre.toLowerCase())}">
         ${marcarAsistencia ? `<td>${r.presencialOk ? '' : `<input type="checkbox" data-sel="${esc(f.asignacion.id)}" aria-label="Seleccionar a ${esc(f.colaborador.nombre)}" style="width:20px;height:20px;accent-color:var(--naranja)">`}</td>` : ''}
         <td><a class="nombre" href="#/capacitaciones/${esc(capId)}/persona/${esc(f.asignacion.id)}" style="color:inherit">${esc(f.colaborador.nombre)}</a><span class="det">${esc(f.colaborador.cargo)} · vence ${esc(fmtFecha(f.asignacion.fecha_limite))}</span></td>
@@ -74,23 +75,6 @@ export function vistaSeguimiento(capId) {
           .map((x) => `<tr><td>${esc(fmtFecha(x.fecha))}</td><td>${esc(x.hora_inicio)}–${esc(x.hora_fin)}</td><td>${x.enlace ? `<a href="${esc(x.enlace)}" target="_blank" rel="noopener">Abrir en Teams</a>` : '—'}</td></tr>`)
           .join('')}</tbody></table></div>
         <p class="muted small" style="padding:0 16px 14px">${cap.preguntas.length ? 'La gente entra desde la invitación de Teams y después responde el cuestionario en el portal: al aprobarlo queda completada. Si quieres, sube la lista de Teams como evidencia de asistencia.' : 'Sin cuestionario: después de la reunión pulsa «Subir lista de Teams» y se registra automáticamente a quienes asistieron. También puedes marcarlos a mano en la tabla.'}</p></div>`;
-
-  const sesionesHtml =
-    !['presencial', 'mixta'].includes(cap.modalidad)
-      ? ''
-      : `<div class="tarjeta sin-pad"><div class="filtros"><h2>Sesiones presenciales (QR)</h2>${permisos.editar && cap.estado === 'publicada' ? '<button class="btn btn-primario btn-sm" id="generar-qr">' + ico.qr + ' Generar QR de asistencia</button>' : ''}</div>
-        ${
-          s.sesiones.length
-            ? `<div class="tabla-wrap"><table><thead><tr><th>Fecha</th><th>Horario</th><th>Lugar</th><th>Asistentes</th><th>Estado</th><th></th></tr></thead><tbody>${s.sesiones
-                .slice()
-                .reverse()
-                .map((se) => {
-                  const est = api.estadoSesion(uid, capId, se.id);
-                  return `<tr><td>${esc(fmtFecha(se.fecha))}</td><td>${esc(se.hora_inicio)}–${esc(se.hora_fin)}</td><td>${esc(se.lugar || '—')}</td><td><b>${est.asistentes.length}</b></td><td>${est.vigente ? '<span class="pill verde">QR vigente</span>' : '<span class="pill gris">Cerrada</span>'}</td><td>${est.vigente ? `<a class="btn btn-sec btn-sm" href="#/capacitaciones/${esc(capId)}/qr/${esc(se.id)}">Proyectar QR</a>` : `<a class="btn btn-link btn-sm" href="#/capacitaciones/${esc(capId)}/qr/${esc(se.id)}">Ver asistentes</a>`}</td></tr>`;
-                })
-                .join('')}</tbody></table></div>`
-            : '<div class="vacio small">Aún no hay sesiones. Genera un QR el día de la charla.</div>'
-        }</div>`;
 
   return {
     titulo: `Seguimiento: ${cap.titulo}`,
@@ -125,13 +109,11 @@ export function vistaSeguimiento(capId) {
     <div class="tarjeta sin-pad">
       <div class="filtros">
         <div role="group" aria-label="Filtrar por estado" class="pildoras">${FILTROS.map((fl) => `<button class="pildora" data-filtro="${fl.id}" aria-pressed="${fl.id === 'todos'}">${fl.label} (${fl.estados ? s.filas.filter((x) => fl.estados.includes(x.resumen.estado)).length : s.filas.length})</button>`).join('')}</div>
-        ${
-          marcarAsistencia
-            ? `<div class="acciones"><button class="btn btn-sec btn-sm" data-subir-teams>Subir lista de Teams</button><button class="btn btn-primario btn-sm" id="marcar-sel" disabled>Registrar asistencia (0)</button></div>`
-            : permisos.recordar
-              ? `<button class="btn btn-primario btn-sm" id="recordar-todos" ${pendientesRecordar.length ? '' : 'disabled'}>Recordar a los que faltan (${pendientesRecordar.length})</button>`
-              : ''
-        }
+        <div class="acciones">
+          ${cap.modalidad === 'en_vivo' && marcarAsistencia ? '<button class="btn btn-sec btn-sm" data-subir-teams>Subir lista de Teams</button>' : ''}
+          ${marcarAsistencia ? '<button class="btn btn-primario btn-sm" id="marcar-sel" disabled>Registrar asistencia (0)</button>' : ''}
+          ${permisos.recordar && (pendientesRecordar.length || !marcarAsistencia) ? `<button class="btn ${marcarAsistencia ? 'btn-sec' : 'btn-primario'} btn-sm" id="recordar-todos" ${pendientesRecordar.length ? '' : 'disabled'}>Recordar a los que faltan (${pendientesRecordar.length})</button>` : ''}
+        </div>
       </div>
       <div class="filtros campo-busq">
         <label class="sr-only" for="buscar">Buscar por nombre</label><input type="search" id="buscar" placeholder="Buscar por nombre…" style="flex:2 1 220px">
@@ -140,7 +122,6 @@ export function vistaSeguimiento(capId) {
       ${s.filas.length ? `<div class="tabla-wrap"><table><thead><tr>${marcarAsistencia ? '<th><input type="checkbox" id="sel-todos" aria-label="Seleccionar todos los que faltan" style="width:20px;height:20px;accent-color:var(--naranja)"></th>' : ''}<th>Colaborador</th><th>Área</th><th>${cap.modalidad === 'presencial' || cap.modalidad === 'en_vivo' ? 'Asistencia' : 'Videos vistos'}</th><th>Cuestionario</th><th>Firma</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="tbody">${filas}</tbody></table></div><div class="vacio small" id="sin-resultados" hidden>No hay personas con ese filtro.</div>` : '<div class="vacio">Aún no hay personas asignadas.</div>'}
     </div>
     ${reunionesHtml}
-    ${sesionesHtml}
     ${panelPreguntasAdmin(capId, permisos)}`,
     montar: (root) => {
       montarPreguntasAdmin(root, capId);
@@ -223,25 +204,6 @@ export function vistaSeguimiento(capId) {
         app.refrescar();
       });
       root.querySelector('#exportar').addEventListener('click', () => exportarExcel(capId));
-      root.querySelector('#generar-qr')?.addEventListener('click', () => {
-        const m = modal(
-          'Generar QR de asistencia',
-          `<form class="pila" id="f-qr">
-            <label class="campo"><span>Lugar</span><input type="text" name="lugar" value="${esc(cap.lugar)}"></label>
-            <label class="campo"><span>Vigencia del QR (minutos)</span><input type="number" name="minutos" min="5" max="480" value="${Math.max(15, cap.duracion_min || 60)}"><small>Ponlo igual a la duración de la charla. Después el QR deja de funcionar.</small></label>
-            <div class="acciones" style="justify-content:flex-end"><button type="button" class="btn btn-sec" data-cerrar>Cancelar</button><button class="btn btn-primario">Generar y proyectar</button></div>
-          </form>`
-        );
-        m.el.querySelector('#f-qr').addEventListener('submit', (e) => {
-          e.preventDefault();
-          const datos = Object.fromEntries(new FormData(e.target));
-          const se = intentar(() => api.crearSesion(uid, capId, datos));
-          if (se) {
-            m.cerrar();
-            navegar(`#/capacitaciones/${capId}/qr/${se.id}`);
-          }
-        });
-      });
     },
   };
 }
@@ -445,7 +407,7 @@ export function vistaDetallePersona(capId, asigId) {
         a
           ? `<div class="form-grid">
           <div><span class="small muted">Tipo</span><br><b>${esc(TIPOS_ASISTENCIA[a.tipo] || a.tipo)}</b></div>
-          <div><span class="small muted">Registrada</span><br><b>${esc(fmtFechaHora(a.registrado_en))}</b>${a.sesion ? `<br><span class="small muted">Sesión ${esc(fmtFecha(a.sesion.fecha))} ${esc(a.sesion.hora_inicio)} · ${esc(a.sesion.lugar)}</span>` : ''}${a.reunion ? `<br><span class="small muted">Reunión Teams ${esc(fmtFecha(a.reunion.fecha))} ${esc(a.reunion.hora_inicio)}–${esc(a.reunion.hora_fin)}</span>` : ''}</div>
+          <div><span class="small muted">Registrada</span><br><b>${esc(fmtFechaHora(a.registrado_en))}</b>${a.reunion ? `<br><span class="small muted">Reunión Teams ${esc(fmtFecha(a.reunion.fecha))} ${esc(a.reunion.hora_inicio)}–${esc(a.reunion.hora_fin)}</span>` : ''}</div>
           <div><span class="small muted">Firmada</span><br><b>${esc(fmtFechaHora(a.firmado_en))}</b>${r.fueraDePlazo ? ' <span class="pill rojo">Fuera de plazo</span>' : ''}</div>
           <div>${a.firma ? `<img class="firma-img" src="${esc(a.firma)}" alt="Firma de ${esc(c.nombre)}">` : '<span class="muted">Sin firma</span>'}</div>
         </div>${a.dispositivo ? `<p class="small muted">Dispositivo: ${esc(a.dispositivo)}</p>` : ''}`
@@ -481,7 +443,6 @@ export function vistaDetallePersona(capId, asigId) {
 export function vistaRegistro(capId) {
   const d = api.datosRegistro(sesion.uid, capId);
   const cap = d.capacitacion;
-  const sesiones = [...new Map(d.filas.filter((f) => f.sesion).map((f) => [f.sesion.id, f.sesion])).values()];
   const filas = d.filas
     .map(
       (f, i) => `<tr><td>${i + 1}</td><td>${esc(f.colaborador.nombre)}</td><td>${esc(f.colaborador.dni || '—')}</td><td>${esc(f.colaborador.area)}</td><td>${esc(f.colaborador.cargo)}</td>
@@ -510,7 +471,7 @@ export function vistaRegistro(capId) {
         <div><b>Modalidad:</b> ${esc(MODALIDADES[cap.modalidad])}</div>
         <div><b>Duración:</b> ${cap.duracion_min} minutos</div>
         <div><b>Lugar:</b> ${esc(cap.lugar || (cap.modalidad === 'virtual' ? 'Portal INVA (virtual)' : cap.modalidad === 'en_vivo' ? 'Reunión virtual – Microsoft Teams' : '—'))}</div>
-        <div><b>Fecha(s):</b> ${cap.modalidad === 'en_vivo' && (cap.reuniones || []).length ? cap.reuniones.map((s) => `${esc(fmtFecha(s.fecha))} ${esc(s.hora_inicio)}–${esc(s.hora_fin)}`).join('; ') : sesiones.length ? sesiones.map((s) => `${esc(fmtFecha(s.fecha))} ${esc(s.hora_inicio)}–${esc(s.hora_fin)}`).join('; ') : `Del ${esc(fmtFecha(cap.creado_en))} al ${esc(fmtFecha(cap.fecha_limite))}`}</div>
+        <div><b>Fecha(s):</b> ${cap.modalidad === 'en_vivo' && (cap.reuniones || []).length ? cap.reuniones.map((s) => `${esc(fmtFecha(s.fecha))} ${esc(s.hora_inicio)}–${esc(s.hora_fin)}`).join('; ') : `Del ${esc(fmtFecha(cap.creado_en))} al ${esc(fmtFecha(cap.fecha_limite))}`}</div>
         <div><b>Capacitador:</b> ${esc(cap.capacitador_nombre || '—')}</div>
         <div><b>Cargo / empresa:</b> ${esc(cap.capacitador_cargo || '—')}</div>
         <div><b>Total de asistentes:</b> ${d.filas.length}</div>
@@ -569,54 +530,4 @@ export function exportarExcel(capId) {
     URL.revokeObjectURL(a.href);
   }
   toast('Archivo descargado', 'ok');
-}
-
-// ───────────────────────── QR para proyectar ─────────────────────────
-export function vistaQR(capId, sesionId) {
-  const uid = sesion.uid;
-  const est = api.estadoSesion(uid, capId, sesionId);
-  const { permisos } = api.obtenerCapacitacionAdmin(uid, capId);
-  const url = `${location.origin}${location.pathname}#/asistencia/${est.sesion.token_qr}`;
-  return {
-    titulo: 'QR de asistencia',
-    sinLayout: true,
-    html: `<div class="proyeccion">
-      <div class="fila" style="justify-content:center"><span class="logo">INVA</span><span class="muted">Registro de asistencia</span></div>
-      <h1 style="font-size:clamp(24px,4vw,40px)">${esc(est.capacitacion.titulo)}</h1>
-      <p class="muted">${esc(fmtFechaLarga(est.sesion.fecha))} · ${esc(est.sesion.hora_inicio)}–${esc(est.sesion.hora_fin)}${est.sesion.lugar ? ' · ' + esc(est.sesion.lugar) : ''}</p>
-      <div id="zona-qr">${est.vigente ? '<div class="qr" id="qr" aria-label="Código QR de asistencia"></div><p>Escanea con la cámara de tu celular e ingresa con tu usuario del portal.</p>' : '<div class="aviso warn">Esta sesión está cerrada: el QR ya no funciona.</div>'}</div>
-      <div><div class="contador" id="contador">${est.asistentes.length}</div><span class="muted">asistentes registrados de ${est.asignados} asignados · <span id="restante"></span></span></div>
-      <div id="ultimos" class="muted small"></div>
-      <div class="acciones no-print" style="justify-content:center">
-        <a class="btn btn-sec" href="#/capacitaciones/${esc(capId)}/seguimiento">← Volver</a>
-        ${est.vigente ? `<a class="btn btn-sec" href="${esc(url)}" target="_blank" rel="noopener">Abrir enlace (simular escaneo)</a>` : ''}
-        ${est.vigente && permisos.editar ? '<button class="btn btn-primario" id="cerrar-sesion">Cerrar sesión de QR</button>' : ''}
-      </div>
-      <p class="muted small" style="max-width:620px">Demo: los datos se guardan en este navegador, así que el escaneo con otro celular no se refleja aquí. Usa «Abrir enlace» e ingresa como una persona asignada para probarlo.</p>
-    </div>`,
-    montar: (root) => {
-      const qrEl = root.querySelector('#qr');
-      if (qrEl) {
-        if (window.QRCode) new window.QRCode(qrEl, { text: url, width: 280, height: 280, correctLevel: window.QRCode.CorrectLevel.M });
-        else qrEl.innerHTML = `<p style="color:#000;max-width:280px;word-break:break-all">${esc(url)}</p>`;
-      }
-      const pintar = () => {
-        api.cargar();
-        const e = api.estadoSesion(uid, capId, sesionId);
-        root.querySelector('#contador').textContent = e.asistentes.length;
-        root.querySelector('#ultimos').textContent = e.asistentes.length ? 'Últimos: ' + e.asistentes.slice(0, 5).map((x) => x.nombre).join(', ') : '';
-        const min = Math.round((new Date(e.sesion.qr_expira_en) - api.ahora()) / 60000);
-        root.querySelector('#restante').textContent = e.vigente ? `el QR vence en ${min} min` : 'sesión cerrada';
-        if (!e.vigente && qrEl && root.querySelector('#qr')) app.refrescar();
-      };
-      pintar();
-      const t = setInterval(pintar, 3000);
-      app.limpiezas.push(() => clearInterval(t));
-      root.querySelector('#cerrar-sesion')?.addEventListener('click', async () => {
-        if (!(await confirmar('Cerrar sesión de QR', 'El código dejará de funcionar. Podrás ver la lista de asistentes en el seguimiento.', 'Cerrar sesión'))) return;
-        intentar(() => api.cerrarSesion(uid, capId, sesionId), 'Sesión cerrada');
-        navegar(`#/capacitaciones/${capId}/seguimiento`);
-      });
-    },
-  };
 }
