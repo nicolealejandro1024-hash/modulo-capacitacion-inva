@@ -27,6 +27,8 @@ Al entrar eliges un **usuario de demostración**. Prueba, por ejemplo:
 | **Renzo Castillo** (Colaborador) | Solo lectura del seguimiento de «Charla SST». |
 | Cualquier colaborador | «Mis Capacitaciones»: videos, cuestionario y firma. |
 
+**Ejemplos con capturas de lo que ve cada cuenta:** [`docs/EJEMPLOS_POR_CUENTA.md`](docs/EJEMPLOS_POR_CUENTA.md).
+
 La barra amarilla de arriba permite **avanzar 1 día** (para ver los recordatorios automáticos), **cambiar de usuario**
 y **restablecer los datos de ejemplo**. En el reproductor hay una velocidad **16× (demo)** para no esperar los videos completos.
 
