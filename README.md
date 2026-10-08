@@ -39,6 +39,7 @@ y **restablecer los datos de ejemplo**. En el reproductor hay una velocidad **16
 - Cuestionario (opción múltiple o verdadero/falso) que se desbloquea al terminar los videos; nota mínima, intentos y
   revisión de respuestas configurables (las correctas solo se revelan al aprobar o al agotar intentos).
 - Declaración + **firma** (reutiliza «Mi Firma» si ya existe, o se dibuja con el dedo/mouse). Recién con la firma pasa a *Completado*.
+- **Virtual en vivo (Teams):** reuniones con fecha, hora y enlace; botón «Unirme a la reunión» (registra la hora de ingreso como evidencia, sin exigir tiempo mínimo); el cuestionario se habilita al empezar la reunión; grabación opcional para quien faltó; aviso el día de la reunión.
 - **«¿Tienes alguna pregunta?»** en cada capacitación: la duda llega a sus responsables y la respuesta vuelve con aviso en la campana.
 - Asistencia presencial por **QR** y aviso de datos personales (Ley 29733).
 

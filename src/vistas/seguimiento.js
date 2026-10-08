@@ -1,6 +1,6 @@
 // Seguimiento (solo responsables), detalle por persona, registro de asistencia, exportación y QR presencial.
 import { api, sesion, app, navegar, toast, intentar, modal, confirmar } from '../contexto.js';
-import { esc, fmtFecha, fmtFechaLarga, fmtFechaHora, fmtDuracion, ESTADOS, CATEGORIAS, MODALIDADES, ROLES_RESP, TIPOS_RECORDATORIO } from '../util.js';
+import { esc, fmtFecha, fmtFechaLarga, fmtFechaHora, fmtDuracion, ESTADOS, CATEGORIAS, MODALIDADES, ROLES_RESP, TIPOS_RECORDATORIO, TIPOS_ASISTENCIA } from '../util.js';
 import { pillEstado } from './colaborador.js';
 import { ico } from '../iconos.js';
 
@@ -16,6 +16,10 @@ const FALTAN = ['en_curso', 'pendiente_firma', 'no_inicio'];
 const recordadoHoy = (f) => f.ultimoRecordatorio?.tipo === 'manual' && f.ultimoRecordatorio.enviado_en.startsWith(api.hoy());
 
 function celdaContenido(cap, r) {
+  if (cap.modalidad === 'en_vivo') {
+    const ingreso = r.ingresoReunion ? `<span class="pill verde">Ingresó</span> <span class="det">${esc(fmtFechaHora(r.ingresoReunion))}</span>` : r.presencialOk ? '<span class="pill verde">Marcado por RR.HH.</span>' : '<span class="muted">No ingresó</span>';
+    return `${ingreso}${r.totalVideos && r.videosVistos ? `<br><span class="det">Grabación ${r.videosVistos}/${r.totalVideos}</span>` : ''}`;
+  }
   if (cap.modalidad === 'presencial') return r.presencialOk ? '<span class="pill verde">Asistió</span>' : '<span class="muted">—</span>';
   const txt = `${r.videosVistos}/${r.totalVideos}`;
   return `${txt}${cap.modalidad === 'mixta' && r.presencialOk ? ' <span class="pill verde">Asistió</span>' : ''}`;
@@ -52,8 +56,20 @@ export function vistaSeguimiento(capId) {
     })
     .join('');
 
+  const reunionesHtml =
+    cap.modalidad !== 'en_vivo'
+      ? ''
+      : `<div class="tarjeta sin-pad"><div class="filtros"><h2>Reuniones de Teams</h2>${permisos.editar ? `<a class="btn btn-sec btn-sm" href="#/capacitaciones/${esc(capId)}/editar">Editar horarios</a>` : ''}</div>
+        <div class="tabla-wrap"><table><thead><tr><th>Fecha</th><th>Horario</th><th>Ingresaron</th><th>Enlace</th></tr></thead><tbody>${(cap.reuniones || [])
+          .map((x) => {
+            const n = s.filas.filter((f) => f.resumen.ingresoReunion && api.db.asistencias.some((a) => a.asignacion_id === f.asignacion.id && a.sesion_id === x.id)).length;
+            return `<tr><td>${esc(fmtFecha(x.fecha))}</td><td>${esc(x.hora_inicio)}–${esc(x.hora_fin)}</td><td><b>${n}</b></td><td><a href="${esc(x.enlace)}" target="_blank" rel="noopener">Abrir en Teams</a></td></tr>`;
+          })
+          .join('')}</tbody></table></div>
+        <p class="muted small" style="padding:0 16px 14px">Se registra la hora en que cada persona entra con el botón del portal. No se exige un tiempo mínimo: para completar basta con el cuestionario y la firma.</p></div>`;
+
   const sesionesHtml =
-    cap.modalidad === 'virtual'
+    !['presencial', 'mixta'].includes(cap.modalidad)
       ? ''
       : `<div class="tarjeta sin-pad"><div class="filtros"><h2>Sesiones presenciales (QR)</h2>${permisos.editar && cap.estado === 'publicada' ? '<button class="btn btn-primario btn-sm" id="generar-qr">' + ico.qr + ' Generar QR de asistencia</button>' : ''}</div>
         ${
@@ -84,7 +100,11 @@ export function vistaSeguimiento(capId) {
     <div class="fila" style="gap:6px"><span class="pill ${cap.estado === 'publicada' ? 'verde' : 'oscuro'}">${cap.estado === 'publicada' ? 'Publicada' : 'Cerrada'}</span><span class="pill gris">${esc(CATEGORIAS[cap.categoria])}</span><span class="pill gris">${esc(MODALIDADES[cap.modalidad])}</span><span class="pill naranja">Tu rol: ${esc(ROLES_RESP[s.rol])}</span><span class="muted small">Fecha límite general: ${esc(fmtFecha(cap.fecha_limite))}</span></div>
     <div class="kpis">
       <div class="kpi"><span class="et">Asignados</span><span class="num">${k.asignados}</span><span class="det">colaboradores</span></div>
-      <div class="kpi"><span class="et">${cap.modalidad === 'presencial' ? 'Asistieron' : 'Vieron todos los videos'}</span><span class="num">${k.vieronVideos}</span><span class="det">${pct(k.vieronVideos)} del total</span></div>
+      ${
+        cap.modalidad === 'en_vivo'
+          ? `<div class="kpi"><span class="et">Ingresaron a la reunión</span><span class="num">${k.ingresaronReunion}</span><span class="det">${pct(k.ingresaronReunion)} del total</span></div>`
+          : `<div class="kpi"><span class="et">${cap.modalidad === 'presencial' ? 'Asistieron' : 'Vieron todos los videos'}</span><span class="num">${k.vieronVideos}</span><span class="det">${pct(k.vieronVideos)} del total</span></div>`
+      }
       <div class="kpi"><span class="et">Respondieron cuestionario</span><span class="num">${k.respondieron}</span><span class="det">${cap.preguntas.length ? `nota promedio ${k.notaPromedio === null ? '—' : k.notaPromedio.toFixed(1).replace('.', ',') + '/' + cap.preguntas.length}` : 'sin cuestionario'}</span></div>
       <div class="kpi ok"><span class="et">Firmaron</span><span class="num">${k.firmaron}</span><span class="det">${pct(k.firmaron)} completado</span></div>
       <div class="kpi alerta"><span class="et">Faltan</span><span class="num">${k.faltan}</span><span class="det">${k.enCurso} en curso · ${k.noIniciaron} no iniciaron</span></div>
@@ -104,8 +124,9 @@ export function vistaSeguimiento(capId) {
         <label class="sr-only" for="buscar">Buscar por nombre</label><input type="search" id="buscar" placeholder="Buscar por nombre…" style="flex:2 1 220px">
         <label class="sr-only" for="f-area">Área</label><select id="f-area" style="flex:1 1 160px"><option value="">Todas las áreas</option>${areas.map((a) => `<option>${esc(a)}</option>`).join('')}</select>
       </div>
-      ${s.filas.length ? `<div class="tabla-wrap"><table><thead><tr><th>Colaborador</th><th>Área</th><th>${cap.modalidad === 'presencial' ? 'Asistencia' : 'Videos vistos'}</th><th>Cuestionario</th><th>Firma</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="tbody">${filas}</tbody></table></div><div class="vacio small" id="sin-resultados" hidden>No hay personas con ese filtro.</div>` : '<div class="vacio">Aún no hay personas asignadas.</div>'}
+      ${s.filas.length ? `<div class="tabla-wrap"><table><thead><tr><th>Colaborador</th><th>Área</th><th>${cap.modalidad === 'presencial' ? 'Asistencia' : cap.modalidad === 'en_vivo' ? 'Reunión Teams' : 'Videos vistos'}</th><th>Cuestionario</th><th>Firma</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="tbody">${filas}</tbody></table></div><div class="vacio small" id="sin-resultados" hidden>No hay personas con ese filtro.</div>` : '<div class="vacio">Aún no hay personas asignadas.</div>'}
     </div>
+    ${reunionesHtml}
     ${sesionesHtml}
     ${panelPreguntasAdmin(capId, permisos)}`,
     montar: (root) => {
@@ -242,7 +263,7 @@ export function vistaDetallePersona(capId, asigId) {
       <div class="fila">${pillEstado(r)}</div></div>
     <div class="kpis">
       <div class="kpi"><span class="et">Avance</span><span class="num">${r.porcentaje} %</span></div>
-      <div class="kpi"><span class="et">${cap.modalidad === 'presencial' ? 'Asistencia' : 'Videos'}</span><span class="num">${cap.modalidad === 'presencial' ? (r.presencialOk ? 'Sí' : 'No') : `${r.videosVistos}/${r.totalVideos}`}</span></div>
+      <div class="kpi"><span class="et">${cap.modalidad === 'presencial' ? 'Asistencia' : cap.modalidad === 'en_vivo' ? 'Ingresó a la reunión' : 'Videos'}</span><span class="num">${cap.modalidad === 'presencial' || cap.modalidad === 'en_vivo' ? (r.presencialOk ? 'Sí' : 'No') : `${r.videosVistos}/${r.totalVideos}`}</span></div>
       <div class="kpi"><span class="et">Cuestionario</span><span class="num">${r.tieneCuestionario ? (r.mejorNota !== null ? `${r.mejorNota}/${r.totalPreguntas}` : '—') : 'N/A'}</span><span class="det">${r.tieneCuestionario ? `${r.intentosUsados} intento(s)${r.intentosRestantes !== null ? ` · quedan ${r.intentosRestantes}` : ''}` : ''}</span></div>
       <div class="kpi"><span class="et">Fecha límite</span><span class="num" style="font-size:20px">${esc(fmtFecha(d.asignacion.fecha_limite))}</span><span class="det">asignada el ${esc(fmtFecha(d.asignacion.fecha_asignacion))}</span></div>
     </div>
@@ -251,7 +272,7 @@ export function vistaDetallePersona(capId, asigId) {
         ? `<div class="tarjeta pila"><h2>Acciones</h2><div class="acciones">
       ${permisos.recordar && !r.firmado ? '<button class="btn btn-primario" id="recordar">Enviar recordatorio</button>' : ''}
       ${permisos.editar && r.tieneCuestionario && !r.aprobado && r.intentosRestantes !== null ? '<button class="btn btn-sec" id="intento">Habilitar un intento más</button>' : ''}
-      ${permisos.editar && cap.modalidad !== 'virtual' && !r.presencialOk ? '<button class="btn btn-sec" id="manual">Marcar asistencia manual</button>' : ''}
+      ${permisos.editar && cap.modalidad !== 'virtual' && !r.presencialOk ? `<button class="btn btn-sec" id="manual">${cap.modalidad === 'en_vivo' ? 'Marcar que asistió a la reunión' : 'Marcar asistencia manual'}</button>` : ''}
       ${permisos.editar && !r.firmado ? `<span class="fila" style="gap:6px"><label class="sr-only" for="nueva-fecha">Nueva fecha límite</label><input type="date" id="nueva-fecha" value="${esc(d.asignacion.fecha_limite)}" style="width:auto"><button class="btn btn-sec" id="cambiar-fecha">Cambiar fecha límite</button></span>` : ''}
     </div></div>`
         : ''
@@ -262,8 +283,8 @@ export function vistaDetallePersona(capId, asigId) {
       ${
         a
           ? `<div class="form-grid">
-          <div><span class="small muted">Tipo</span><br><b>${a.tipo === 'virtual' ? 'Virtual (videos)' : a.tipo === 'presencial_qr' ? 'Presencial (QR)' : 'Presencial (registro manual)'}</b></div>
-          <div><span class="small muted">Registrada</span><br><b>${esc(fmtFechaHora(a.registrado_en))}</b>${a.sesion ? `<br><span class="small muted">Sesión ${esc(fmtFecha(a.sesion.fecha))} ${esc(a.sesion.hora_inicio)} · ${esc(a.sesion.lugar)}</span>` : ''}</div>
+          <div><span class="small muted">Tipo</span><br><b>${esc(TIPOS_ASISTENCIA[a.tipo] || a.tipo)}</b></div>
+          <div><span class="small muted">Registrada</span><br><b>${esc(fmtFechaHora(a.registrado_en))}</b>${a.sesion ? `<br><span class="small muted">Sesión ${esc(fmtFecha(a.sesion.fecha))} ${esc(a.sesion.hora_inicio)} · ${esc(a.sesion.lugar)}</span>` : ''}${a.reunion ? `<br><span class="small muted">Reunión Teams ${esc(fmtFecha(a.reunion.fecha))} ${esc(a.reunion.hora_inicio)}–${esc(a.reunion.hora_fin)}</span>` : ''}</div>
           <div><span class="small muted">Firmada</span><br><b>${esc(fmtFechaHora(a.firmado_en))}</b>${r.fueraDePlazo ? ' <span class="pill rojo">Fuera de plazo</span>' : ''}</div>
           <div>${a.firma ? `<img class="firma-img" src="${esc(a.firma)}" alt="Firma de ${esc(c.nombre)}">` : '<span class="muted">Sin firma</span>'}</div>
         </div>${a.dispositivo ? `<p class="small muted">Dispositivo: ${esc(a.dispositivo)}</p>` : ''}`
@@ -303,7 +324,7 @@ export function vistaRegistro(capId) {
   const filas = d.filas
     .map(
       (f, i) => `<tr><td>${i + 1}</td><td>${esc(f.colaborador.nombre)}</td><td>${esc(f.colaborador.dni || '—')}</td><td>${esc(f.colaborador.area)}</td><td>${esc(f.colaborador.cargo)}</td>
-      <td>${f.asistencia.tipo === 'virtual' ? 'Virtual' : 'Presencial'}</td><td>${f.resumen.tieneCuestionario ? `${f.resumen.mejorNota}/${f.resumen.totalPreguntas}` : '—'}</td>
+      <td>${esc(TIPOS_ASISTENCIA[f.asistencia.tipo] || f.asistencia.tipo)}</td><td>${f.resumen.tieneCuestionario ? `${f.resumen.mejorNota}/${f.resumen.totalPreguntas}` : '—'}</td>
       <td>${esc(fmtFechaHora(f.asistencia.firmado_en))}</td><td>${f.firma ? `<img src="${esc(f.firma)}" alt="Firma">` : ''}</td></tr>`
     )
     .join('');
@@ -327,8 +348,8 @@ export function vistaRegistro(capId) {
         <div style="grid-column:1/-1"><b>Tema tratado:</b> ${esc(cap.descripcion)}</div>
         <div><b>Modalidad:</b> ${esc(MODALIDADES[cap.modalidad])}</div>
         <div><b>Duración:</b> ${cap.duracion_min} minutos</div>
-        <div><b>Lugar:</b> ${esc(cap.lugar || (cap.modalidad === 'virtual' ? 'Portal INVA (virtual)' : '—'))}</div>
-        <div><b>Fecha(s):</b> ${sesiones.length ? sesiones.map((s) => `${esc(fmtFecha(s.fecha))} ${esc(s.hora_inicio)}–${esc(s.hora_fin)}`).join('; ') : `Del ${esc(fmtFecha(cap.creado_en))} al ${esc(fmtFecha(cap.fecha_limite))}`}</div>
+        <div><b>Lugar:</b> ${esc(cap.lugar || (cap.modalidad === 'virtual' ? 'Portal INVA (virtual)' : cap.modalidad === 'en_vivo' ? 'Reunión virtual – Microsoft Teams' : '—'))}</div>
+        <div><b>Fecha(s):</b> ${cap.modalidad === 'en_vivo' && (cap.reuniones || []).length ? cap.reuniones.map((s) => `${esc(fmtFecha(s.fecha))} ${esc(s.hora_inicio)}–${esc(s.hora_fin)}`).join('; ') : sesiones.length ? sesiones.map((s) => `${esc(fmtFecha(s.fecha))} ${esc(s.hora_inicio)}–${esc(s.hora_fin)}`).join('; ') : `Del ${esc(fmtFecha(cap.creado_en))} al ${esc(fmtFecha(cap.fecha_limite))}`}</div>
         <div><b>Capacitador:</b> ${esc(cap.capacitador_nombre || '—')}</div>
         <div><b>Cargo / empresa:</b> ${esc(cap.capacitador_cargo || '—')}</div>
         <div><b>Total de asistentes:</b> ${d.filas.length}</div>
@@ -359,7 +380,8 @@ export function exportarExcel(capId) {
     'Fecha asignación': f.asignacion.fecha_asignacion,
     'Fecha límite': f.asignacion.fecha_limite,
     'Videos vistos': `${f.resumen.videosVistos}/${f.resumen.totalVideos}`,
-    'Asistencia presencial': f.resumen.presencialOk ? 'Sí' : 'No',
+    'Asistencia presencial': f.resumen.presencialOk && !f.resumen.ingresoReunion ? 'Sí' : 'No',
+    'Ingresó a reunión Teams': f.resumen.ingresoReunion ? fmtFechaHora(f.resumen.ingresoReunion) : cap.modalidad === 'en_vivo' ? 'No' : '',
     Nota: f.resumen.mejorNota === null ? 'Sin responder' : `${f.resumen.mejorNota}/${f.resumen.totalPreguntas}`,
     Intentos: f.resumen.intentosUsados,
     Firmó: f.resumen.firmado ? 'Sí' : 'No',

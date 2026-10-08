@@ -155,11 +155,16 @@ export class Api {
     const videosOk = videosVistos === cap.videos.length;
     const asis = this.db.asistencias.find((x) => x.asignacion_id === a.id) || null;
     const presencialOk = !!asis && asis.tipo !== 'virtual';
+    // Reunión en vivo por Teams: no se exige asistencia mínima; el cuestionario se habilita cuando empieza la reunión.
+    const reuniones = cap.reuniones || [];
+    const reunionIniciada = reuniones.some((x) => `${x.fecha}T${x.hora_inicio}:00` <= this.marca());
+    const ingresoReunion = asis?.tipo === 'en_vivo' ? asis.registrado_en : null;
     const intentos = this.db.intentos.filter((i) => i.asignacion_id === a.id).sort((x, y) => x.numero_intento - y.numero_intento);
     const aprobado = intentos.some((i) => i.aprobado);
     const mejorNota = intentos.length ? Math.max(...intentos.map((i) => i.nota)) : null;
     const tieneCuestionario = cap.preguntas.length > 0;
-    const contenidoOk = cap.modalidad === 'virtual' ? videosOk : cap.modalidad === 'presencial' ? presencialOk : videosOk || presencialOk;
+    const contenidoOk =
+      cap.modalidad === 'virtual' ? videosOk : cap.modalidad === 'presencial' ? presencialOk : cap.modalidad === 'en_vivo' ? reunionIniciada || presencialOk || (cap.videos.length > 0 && videosOk) : videosOk || presencialOk;
     const cuestionarioOk = !tieneCuestionario || aprobado;
     const firmado = !!asis?.firmado_en;
     const intentosPermitidos = cap.intentos_max ? cap.intentos_max + (a.intentos_extra || 0) : null;
@@ -173,13 +178,14 @@ export class Api {
     else if (contenidoOk && cuestionarioOk) estado = 'pendiente_firma';
     else if (empezo) estado = 'en_curso';
 
-    const nCont = cap.modalidad === 'presencial' ? 1 : Math.max(1, cap.videos.length);
-    const hechoCont = contenidoOk ? nCont : cap.modalidad === 'presencial' ? 0 : videosVistos;
+    const unidadUnica = cap.modalidad === 'presencial' || cap.modalidad === 'en_vivo';
+    const nCont = unidadUnica ? 1 : Math.max(1, cap.videos.length);
+    const hechoCont = contenidoOk ? nCont : unidadUnica ? 0 : videosVistos;
     const total = nCont + (tieneCuestionario ? 1 : 0) + 1;
     const hecho = hechoCont + (tieneCuestionario && aprobado ? 1 : 0) + (firmado ? 1 : 0);
 
     let falta = null;
-    if (!contenidoOk) falta = cap.modalidad === 'presencial' ? 'confirmar tu asistencia' : 'ver los videos';
+    if (!contenidoOk) falta = cap.modalidad === 'presencial' ? 'confirmar tu asistencia' : cap.modalidad === 'en_vivo' ? 'participar en la reunión de Teams' : 'ver los videos';
     else if (!cuestionarioOk) falta = 'responder el cuestionario';
     else if (!firmado) falta = 'firmar tu asistencia';
 
@@ -190,6 +196,8 @@ export class Api {
       totalVideos: cap.videos.length,
       videosOk,
       presencialOk,
+      reunionIniciada,
+      ingresoReunion,
       contenidoOk,
       tieneCuestionario,
       cuestionarioOk,
@@ -303,7 +311,8 @@ export class Api {
     if (cap.estado !== 'publicada') throw new ErrorNegocio('Esta capacitación ya está cerrada.');
     const r = this.resumen(a);
     if (!r.tieneCuestionario) throw new ErrorNegocio('Esta capacitación no tiene cuestionario.');
-    if (!r.contenidoOk) throw new ErrorNegocio(cap.modalidad === 'presencial' ? 'Primero confirma tu asistencia.' : 'Primero termina todos los videos.');
+    if (!r.contenidoOk)
+      throw new ErrorNegocio(cap.modalidad === 'presencial' ? 'Primero confirma tu asistencia.' : cap.modalidad === 'en_vivo' ? 'El cuestionario se habilita cuando empieza la reunión.' : 'Primero termina todos los videos.');
     if (r.aprobado) throw new ErrorNegocio('Ya aprobaste este cuestionario.');
     if (r.intentosRestantes === 0) throw new ErrorNegocio('Ya no te quedan intentos. Comunícate con RR.HH.');
     for (const p of cap.preguntas) {
@@ -355,6 +364,25 @@ export class Api {
     this.auditar(uid, 'firmar_asistencia', cap.id, `${u.nombre} firmó su asistencia`);
     this.guardar();
     return this.miCapacitacion(uid, asigId);
+  }
+
+  /** Registra la hora en que la persona entra a la reunión de Teams (evidencia, no obligatorio) y devuelve el enlace. */
+  unirseReunion(uid, asigId, reunionId, dispositivo = '') {
+    const { a, cap } = this.miAsignacion(uid, asigId);
+    const reu = (cap.reuniones || []).find((x) => x.id === reunionId);
+    if (!reu) throw new ErrorNegocio('Reunión no encontrada.');
+    const ahora = this.marca();
+    const desde = fechaHoraISO(new Date(new Date(`${reu.fecha}T${reu.hora_inicio}:00`).getTime() - 15 * 60000));
+    if (ahora < desde) throw new ErrorNegocio('Podrás unirte 15 minutos antes de la hora de inicio.');
+    if (ahora > `${reu.fecha}T${reu.hora_fin}:00`) throw new ErrorNegocio('Esta reunión ya terminó.');
+    let asis = this.db.asistencias.find((x) => x.asignacion_id === a.id);
+    if (!asis) {
+      asis = { id: this.nuevoId('as'), asignacion_id: a.id, firma_id: null, firmado_en: null };
+      this.db.asistencias.push(asis);
+    }
+    if (asis.tipo !== 'en_vivo') Object.assign(asis, { sesion_id: reu.id, tipo: 'en_vivo', registrado_en: ahora, dispositivo: String(dispositivo).slice(0, 200) });
+    this.guardar();
+    return reu.enlace;
   }
 
   infoSesionQR(uid, token) {
@@ -465,7 +493,14 @@ export class Api {
       descripcion: txt(datos.descripcion, 2000),
       categoria: ['induccion', 'sst', 'cumplimiento', 'desarrollo', 'otra'].includes(datos.categoria) ? datos.categoria : 'otra',
       obligatoria: !!datos.obligatoria,
-      modalidad: ['virtual', 'presencial', 'mixta'].includes(datos.modalidad) ? datos.modalidad : 'virtual',
+      modalidad: ['virtual', 'en_vivo', 'presencial', 'mixta'].includes(datos.modalidad) ? datos.modalidad : 'virtual',
+      reuniones: (datos.reuniones || []).map((r) => ({
+        id: r.id || this.nuevoId('reu'),
+        fecha: /^\d{4}-\d{2}-\d{2}$/.test(r.fecha || '') ? r.fecha : this.hoy(),
+        hora_inicio: /^\d{2}:\d{2}$/.test(r.hora_inicio || '') ? r.hora_inicio : '09:00',
+        hora_fin: /^\d{2}:\d{2}$/.test(r.hora_fin || '') ? r.hora_fin : '10:00',
+        enlace: txt(r.enlace, 1000),
+      })),
       capacitador_nombre: txt(datos.capacitador_nombre, 200),
       capacitador_cargo: txt(datos.capacitador_cargo, 200),
       lugar: txt(datos.lugar, 200),
@@ -492,6 +527,14 @@ export class Api {
     const errores = [];
     if (!cap.titulo) errores.push('Falta el título.');
     if (cap.modalidad === 'virtual' && cap.videos.length === 0) errores.push('Una capacitación virtual necesita al menos un video.');
+    if (cap.modalidad === 'en_vivo') {
+      const reus = cap.reuniones || [];
+      if (!reus.length) errores.push('Agrega al menos una reunión de Teams.');
+      reus.forEach((r, i) => {
+        if (!/^https:\/\//.test(r.enlace)) errores.push(`Pega el enlace de Teams de la reunión ${i + 1}.`);
+        if (r.hora_fin <= r.hora_inicio) errores.push(`La hora de fin de la reunión ${i + 1} debe ser posterior a la de inicio.`);
+      });
+    }
     cap.preguntas.forEach((p, i) => {
       if (!p.texto) errores.push(`La pregunta ${i + 1} no tiene texto.`);
       if (p.opciones.length < 2) errores.push(`La pregunta ${i + 1} necesita al menos 2 opciones.`);
@@ -655,6 +698,7 @@ export class Api {
       kpis: {
         asignados: n,
         vieronVideos: filas.filter((f) => f.resumen.contenidoOk).length,
+        ingresaronReunion: filas.filter((f) => f.resumen.ingresoReunion).length,
         respondieron: notas.length,
         notaPromedio: notas.length ? notas.reduce((s, f) => s + f.resumen.mejorNota, 0) / notas.length : null,
         firmaron: cuenta('completado'),
@@ -686,7 +730,14 @@ export class Api {
       resumen: this.resumen(a),
       videos: cap.videos.map((v) => ({ ...copia(v), progreso: copia(this.db.progreso.find((p) => p.asignacion_id === a.id && p.video_id === v.id) || null) })),
       intentos,
-      asistencia: asis ? { ...copia(asis), firma: this.db.firmas.find((f) => f.id === asis.firma_id)?.imagen || null, sesion: copia(this.db.sesiones.find((s) => s.id === asis.sesion_id) || null) } : null,
+      asistencia: asis
+        ? {
+            ...copia(asis),
+            firma: this.db.firmas.find((f) => f.id === asis.firma_id)?.imagen || null,
+            sesion: copia(this.db.sesiones.find((s) => s.id === asis.sesion_id) || null),
+            reunion: copia((cap.reuniones || []).find((r) => r.id === asis.sesion_id) || null),
+          }
+        : null,
       recordatorios: this.db.recordatorios
         .filter((r) => r.asignacion_id === a.id)
         .sort((x, y) => y.enviado_en.localeCompare(x.enviado_en))
@@ -768,6 +819,7 @@ export class Api {
       this.db.asistencias.push(asis);
     }
     Object.assign(asis, { sesion_id: null, tipo: 'presencial_manual', registrado_en: this.marca(), dispositivo: `Registrado por ${this.usuario(uid).nombre}` });
+    // (en reuniones de Teams sirve para quien se conectó sin usar el botón del portal)
     this.auditar(uid, 'asistencia_manual', capId, `Marcó asistencia manual de ${this.usuario(a.colaborador_id).nombre}`);
     this.notificar(a.colaborador_id, 'Asistencia registrada', `RR.HH. registró tu asistencia a «${this.cap(capId).titulo}». Ingresa para completar y firmar.`, `#/mis-capacitaciones/${a.id}`);
     this.guardar();
@@ -776,7 +828,7 @@ export class Api {
   // ───────────────────────── sesiones presenciales (QR) ─────────────────────────
   crearSesion(uid, capId, { lugar = '', minutos = 60 } = {}) {
     const { cap } = this.exigir(uid, capId, 'editar');
-    if (cap.modalidad === 'virtual') throw new ErrorNegocio('Solo las capacitaciones presenciales o mixtas usan QR.');
+    if (!['presencial', 'mixta'].includes(cap.modalidad)) throw new ErrorNegocio('Solo las capacitaciones presenciales o mixtas usan QR.');
     if (cap.estado !== 'publicada') throw new ErrorNegocio('Publica la capacitación antes de generar el QR.');
     const ahora = this.ahora();
     const fin = new Date(ahora.getTime() + Math.max(5, Math.min(480, Number(minutos) || 60)) * 60000);
@@ -934,11 +986,18 @@ export class Api {
     for (const cap of this.db.capacitaciones) {
       if (cap.estado !== 'publicada' || !cap.recordatorios?.automaticos) continue;
       const vencidosHoy = [];
+      const reunionHoy = (cap.reuniones || []).filter((x) => x.fecha === hoy).sort((x, y) => x.hora_inicio.localeCompare(y.hora_inicio))[0];
       for (const a of this.db.asignaciones.filter((x) => x.capacitacion_id === cap.id)) {
         const r = this.resumen(a);
         if (r.firmado) continue; // no se avisa a quien ya completó
+        if (reunionHoy && !r.ingresoReunion) {
+          // Aviso del día de la reunión en vivo (no cuenta para el límite de recordatorios automáticos).
+          this.db.recordatorios.push({ id: this.nuevoId('rec'), asignacion_id: a.id, canal: 'correo', tipo: 'reunion_hoy', enviado_por: null, enviado_en: this.marca() });
+          this.notificar(a.colaborador_id, 'Hoy tienes una reunión de capacitación', `«${cap.titulo}» por Teams hoy de ${reunionHoy.hora_inicio} a ${reunionHoy.hora_fin}. Entra desde Mis Capacitaciones.`, `#/mis-capacitaciones/${a.id}`);
+          enviados++;
+        }
         const recs = this.db.recordatorios.filter((x) => x.asignacion_id === a.id);
-        const autoHoy = recs.some((x) => x.enviado_por === null && x.tipo !== 'asignacion' && x.enviado_en.startsWith(hoy));
+        const autoHoy = recs.some((x) => x.enviado_por === null && !['asignacion', 'reunion_hoy'].includes(x.tipo) && x.enviado_en.startsWith(hoy));
         if (autoHoy) continue; // máximo 1 aviso automático por día y persona
         const faltan = diasEntre(hoy, a.fecha_limite);
         const ultimo = recs.map((x) => x.enviado_en).sort().pop();

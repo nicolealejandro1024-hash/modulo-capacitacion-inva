@@ -94,6 +94,39 @@ export function crearSemilla(hoy) {
       actualizado_en: ts(-6, 11),
     },
     {
+      id: 'cap5',
+      titulo: 'Seguridad de la información',
+      descripcion: 'Reunión en vivo por Teams sobre contraseñas, correos sospechosos y manejo de información de clientes. (Contenido de ejemplo).',
+      categoria: 'cumplimiento',
+      obligatoria: true,
+      modalidad: 'en_vivo',
+      capacitador_nombre: '[Nombre del capacitador]',
+      capacitador_cargo: 'Área de TI',
+      lugar: '',
+      duracion_min: 60,
+      fecha_limite: d(9),
+      dias_para_completar: 7,
+      nota_minima: 2,
+      intentos_max: 3,
+      mostrar_respuestas: true,
+      asignar_nuevos_ingresos: false,
+      estado: 'publicada',
+      asignacion: { modo: 'area', valores: ['Ingeniería', 'Proyectos', 'Recursos Humanos'] },
+      recordatorios: { ...recordatoriosDefault, copia_jefe_directo: false },
+      reuniones: [
+        { id: 'reu1', fecha: d(-1), hora_inicio: '10:00', hora_fin: '11:00', enlace: 'https://teams.microsoft.com/l/meetup-join/EJEMPLO-1' },
+        { id: 'reu2', fecha: d(2), hora_inicio: '16:00', hora_fin: '17:00', enlace: 'https://teams.microsoft.com/l/meetup-join/EJEMPLO-2' },
+      ],
+      videos: [{ id: 'v6', titulo: 'Grabación de la reunión', duracion_seg: 3300, url: '' }],
+      preguntas: [
+        { id: 'p7', tipo: 'multiple', texto: 'Recibes un correo que pide tu contraseña con urgencia. ¿Qué haces?', opciones: [{ texto: 'La envío para no tener problemas', correcta: false }, { texto: 'No respondo y lo reporto a TI', correcta: true }, { texto: 'Respondo pidiendo más datos', correcta: false }] },
+        { id: 'p8', tipo: 'vf', texto: 'Está bien compartir tu contraseña con un compañero de confianza.', opciones: [{ texto: 'Verdadero', correcta: false }, { texto: 'Falso', correcta: true }] },
+      ],
+      creado_por: 'u1',
+      creado_en: ts(-3, 9),
+      actualizado_en: ts(-3, 9),
+    },
+    {
       id: 'cap3',
       titulo: 'Inducción HC',
       descripcion: 'Inducción específica del proyecto HC. (Ejemplo para mostrar permisos: Nicole NO es responsable de esta capacitación).',
@@ -155,6 +188,7 @@ export function crearSemilla(hoy) {
     { id: 'r5', capacitacion_id: 'cap3', usuario_id: 'u3', rol: 'propietario', agregado_por: 'u3', agregado_en: ts(-4, 15) },
     { id: 'r6', capacitacion_id: 'cap3', usuario_id: 'u4', rol: 'editor', agregado_por: 'u3', agregado_en: ts(-4, 15, 1) },
     { id: 'r7', capacitacion_id: 'cap4', usuario_id: 'u1', rol: 'propietario', agregado_por: 'u1', agregado_en: ts(-1, 16) },
+    { id: 'r8', capacitacion_id: 'cap5', usuario_id: 'u1', rol: 'propietario', agregado_por: 'u1', agregado_en: ts(-3, 9) },
   ];
 
   const asignaciones = [];
@@ -236,10 +270,26 @@ export function crearSemilla(hoy) {
     if (uid === 'c7') asistencias.push({ id: `as${a}`, asignacion_id: a, sesion_id: 's1', tipo: 'presencial_qr', registrado_en: ts(-1, 9, 7), firma_id: null, firmado_en: null, dispositivo: 'Demo' });
   }
 
+  // Seguridad de la información (cap5): en vivo por Teams; una reunión ya pasó.
+  const c5 = capacitaciones.find((c) => c.id === 'cap5');
+  for (const u of usuarios.filter((x) => c5.asignacion.valores.includes(x.area))) {
+    const a = asignar('cap5', u.id, c5.fecha_limite, -3);
+    if (['c1', 'c2', 'u2'].includes(u.id)) asistencias.push({ id: `as${a}`, asignacion_id: a, sesion_id: 'reu1', tipo: 'en_vivo', registrado_en: ts(-1, 9, 58), firma_id: null, firmado_en: null, dispositivo: 'Demo' });
+    if (u.id === 'c1') {
+      rendir(a, c5, 2, 1, -1);
+      const as = asistencias.find((x) => x.asignacion_id === a);
+      firmas.push({ id: `f${a}`, usuario_id: 'c1', imagen: firmaDemo(6), creado_en: ts(-1, 11, 10) });
+      as.firma_id = `f${a}`;
+      as.firmado_en = ts(-1, 11, 11);
+      asignaciones.find((x) => x.id === a).completado_en = as.firmado_en;
+    }
+    if (u.id === 'c2') rendir(a, c5, 1, 1, -1);
+  }
+
   // Inducción HC (cap3): personas puntuales.
   for (const uid of ['c4', 'c5']) {
-    const a = asignar('cap3', uid, capacitaciones[2].fecha_limite, -4);
-    if (uid === 'c5') verVideos(a, capacitaciones[2].videos, 1, 0, -2);
+    const a = asignar('cap3', uid, capacitaciones.find((c) => c.id === 'cap3').fecha_limite, -4);
+    if (uid === 'c5') verVideos(a, capacitaciones.find((c) => c.id === 'cap3').videos, 1, 0, -2);
   }
 
   // Un recordatorio manual de ejemplo.

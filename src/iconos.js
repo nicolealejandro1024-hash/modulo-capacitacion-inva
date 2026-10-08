@@ -17,5 +17,6 @@ export const ico = {
   qr: s('<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/>'),
   descarga: s('<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>'),
   reloj: s('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+  camara: s('<rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/>'),
   ojo: s('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
 };

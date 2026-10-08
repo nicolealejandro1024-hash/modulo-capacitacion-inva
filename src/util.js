@@ -69,15 +69,22 @@ export const ESTADOS = {
 };
 
 export const CATEGORIAS = { induccion: 'Inducción', sst: 'SST', cumplimiento: 'Cumplimiento', desarrollo: 'Desarrollo', otra: 'Otra' };
-export const MODALIDADES = { virtual: 'Virtual', presencial: 'Presencial', mixta: 'Mixta' };
+export const MODALIDADES = { virtual: 'Virtual (videos)', en_vivo: 'Virtual en vivo (Teams)', presencial: 'Presencial', mixta: 'Mixta' };
 export const ESTADOS_CAP = { borrador: 'Borrador', publicada: 'Publicada', cerrada: 'Cerrada' };
 export const ROLES_RESP = { propietario: 'Propietario', editor: 'Editor', solo_lectura: 'Solo lectura' };
 export const MODOS_ASIGNACION = { todos: 'Todos los colaboradores', area: 'Por área', cargo: 'Por cargo', sede: 'Por sede', personas: 'Personas puntuales' };
+export const TIPOS_ASISTENCIA = {
+  virtual: 'Virtual (videos)',
+  en_vivo: 'En vivo por Teams',
+  presencial_qr: 'Presencial (QR)',
+  presencial_manual: 'Registro manual de RR.HH.',
+};
 export const TIPOS_RECORDATORIO = {
   asignacion: 'Aviso de asignación',
   manual: 'Manual',
   automatico: 'Automático',
   dia_antes: 'Un día antes',
+  reunion_hoy: 'Reunión de hoy',
   vencimiento: 'Vencimiento',
   copia_jefe: 'Copia al jefe',
 };

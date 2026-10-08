@@ -148,6 +148,7 @@ function capacitacionVacia() {
     asignacion: { modo: 'todos', valores: [] },
     recordatorios: { automaticos: true, cada_dias: 3, aviso_dia_antes: true, copia_jefe_directo: false },
     videos: [],
+    reuniones: [],
     preguntas: [],
     responsablesNuevos: [],
   };
@@ -165,6 +166,7 @@ export function vistaEditor(capId) {
     if (perfil.rol !== 'admin_rrhh') throw new AccesoDenegado('Solo los Administradores RR.HH. pueden crear capacitaciones.');
     f = capacitacionVacia();
   }
+  f.reuniones ||= [];
   const soloLectura = info && !info.permisos.editar;
   const cerrada = f.estado === 'cerrada';
   const bloqueado = soloLectura || cerrada;
@@ -173,7 +175,7 @@ export function vistaEditor(capId) {
   let busquedaPersonas = '';
 
   const seccionVideos = () => `
-    ${f.videos.length ? '' : `<p class="muted small">${f.modalidad === 'presencial' ? 'Las capacitaciones presenciales no necesitan videos (opcional).' : 'Agrega al menos un video.'}</p>`}
+    ${f.videos.length ? '' : `<p class="muted small">${f.modalidad === 'presencial' ? 'Las capacitaciones presenciales no necesitan videos (opcional).' : f.modalidad === 'en_vivo' ? 'Opcional: después de la reunión puedes subir la grabación para quienes no pudieron conectarse.' : 'Agrega al menos un video.'}</p>`}
     ${f.videos
       .map(
         (v, i) => `<div class="item-editor">
@@ -190,6 +192,23 @@ export function vistaEditor(capId) {
       )
       .join('')}
     <button type="button" class="btn btn-sec" data-accion="agregar-video" style="align-self:flex-start">+ Agregar video</button>`;
+
+  const seccionReuniones = () => `
+    ${f.reuniones.length ? '' : '<p class="muted small">Agrega al menos una reunión. Puedes ofrecer varios horarios para que cada persona elija.</p>'}
+    ${f.reuniones
+      .map(
+        (r, i) => `<div class="item-editor">
+        <div class="cab-item"><b>Reunión ${i + 1}</b><div class="mini-btns"><button type="button" data-accion="quitar-reu" data-i="${i}" aria-label="Quitar reunión ${i + 1}">✕</button></div></div>
+        <div class="form-grid">
+          <label class="campo"><span>Fecha</span><input type="date" data-r="${i}:fecha" value="${esc(r.fecha)}"></label>
+          <label class="campo"><span>Hora de inicio</span><input type="time" data-r="${i}:hora_inicio" value="${esc(r.hora_inicio)}"></label>
+          <label class="campo"><span>Hora de fin</span><input type="time" data-r="${i}:hora_fin" value="${esc(r.hora_fin)}"></label>
+          <label class="campo full"><span>Enlace de la reunión de Teams</span><input type="url" data-r="${i}:enlace" value="${esc(r.enlace)}" placeholder="https://teams.microsoft.com/l/meetup-join/…">
+            <small>En Teams: abre la reunión en el calendario → «Copiar vínculo» y pégalo aquí.</small></label>
+        </div></div>`
+      )
+      .join('')}
+    <button type="button" class="btn btn-sec" data-accion="agregar-reu" style="align-self:flex-start">+ Agregar reunión</button>`;
 
   const seccionPreguntas = () => `
     <div class="form-grid">
@@ -314,11 +333,12 @@ export function vistaEditor(capId) {
         <label class="campo"><span>Duración total (minutos)</span><input type="number" min="0" data-f="duracion_min" value="${esc(f.duracion_min)}"></label>
         <label class="campo"><span>Capacitador – nombre</span><input type="text" data-f="capacitador_nombre" value="${esc(f.capacitador_nombre)}"></label>
         <label class="campo"><span>Capacitador – cargo o empresa</span><input type="text" data-f="capacitador_cargo" value="${esc(f.capacitador_cargo)}"></label>
-        ${f.modalidad !== 'virtual' ? `<label class="campo full"><span>Lugar</span><input type="text" data-f="lugar" value="${esc(f.lugar)}" placeholder="Ej.: Oficina Lima – Sala 1 / Obra …"></label>` : ''}
+        ${f.modalidad === 'presencial' || f.modalidad === 'mixta' ? `<label class="campo full"><span>Lugar</span><input type="text" data-f="lugar" value="${esc(f.lugar)}" placeholder="Ej.: Oficina Lima – Sala 1 / Obra …"></label>` : ''}
       </div>`
     )}
-    ${tarjeta('sec-videos', 'Videos', seccionVideos(), 'Se ven en este orden y no se puede pasar al siguiente sin terminar el actual.')}
-    ${tarjeta('sec-preguntas', 'Cuestionario', seccionPreguntas(), 'Se desbloquea al terminar los videos (o al confirmar asistencia en presencial).')}
+    ${f.modalidad === 'en_vivo' ? tarjeta('sec-reuniones', 'Reuniones de Teams', seccionReuniones(), 'El colaborador verá la fecha y el botón «Unirme a la reunión» (se activa 15 minutos antes). Recibe un aviso el día de la reunión.') : ''}
+    ${tarjeta('sec-videos', f.modalidad === 'en_vivo' ? 'Grabación (opcional)' : 'Videos', seccionVideos(), 'Se ven en este orden y no se puede pasar al siguiente sin terminar el actual.')}
+    ${tarjeta('sec-preguntas', 'Cuestionario', seccionPreguntas(), f.modalidad === 'en_vivo' ? 'Se habilita cuando empieza la reunión. Es lo único obligatorio (además de la firma).' : 'Se desbloquea al terminar los videos (o al confirmar asistencia en presencial).')}
     ${tarjeta('sec-asignacion', 'Asignación', seccionAsignacion())}
     ${tarjeta('sec-recordatorios', 'Recordatorios', seccionRecordatorios())}
     ${tarjeta('sec-responsables', 'Responsables', seccionResponsables())}
@@ -384,6 +404,9 @@ export function vistaEditor(capId) {
           const [i, campo] = t.dataset.v.split(':');
           if (campo === 'min') f.videos[i].duracion_seg = Math.max(1, Math.round(Number(t.value) * 60) || 60);
           else f.videos[i][campo] = t.value;
+        } else if (t.dataset.r) {
+          const [i, campo] = t.dataset.r.split(':');
+          f.reuniones[i][campo] = t.value;
         } else if (t.dataset.p) {
           const [i, campo] = t.dataset.p.split(':');
           f.preguntas[i][campo] = t.value;
@@ -439,6 +462,14 @@ export function vistaEditor(capId) {
             break;
           case 'bajar-video':
             mover(f.videos, i, i + 1);
+            break;
+          case 'agregar-reu': {
+            const ult = f.reuniones[f.reuniones.length - 1];
+            f.reuniones.push({ fecha: ult?.fecha || f.fecha_limite, hora_inicio: ult?.hora_inicio || '09:00', hora_fin: ult?.hora_fin || '10:00', enlace: '' });
+            break;
+          }
+          case 'quitar-reu':
+            f.reuniones.splice(i, 1);
             break;
           case 'agregar-preg':
             f.preguntas.push({ tipo: 'multiple', texto: '', opciones: [{ texto: '', correcta: true }, { texto: '', correcta: false }, { texto: '', correcta: false }] });

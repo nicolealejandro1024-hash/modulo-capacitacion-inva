@@ -19,10 +19,20 @@ function textoVence(asig, r) {
   return `Vence el ${fmtFecha(asig.fecha_limite)}`;
 }
 
+function proximaReunion(cap, ahora) {
+  const reus = (cap.reuniones || []).slice().sort((a, b) => `${a.fecha}${a.hora_inicio}`.localeCompare(`${b.fecha}${b.hora_inicio}`));
+  return reus.find((r) => `${r.fecha}T${r.hora_fin}:00` >= ahora) || null;
+}
+
 function metaCap(cap) {
   const partes = [];
-  if (cap.videos.length) partes.push(`${cap.videos.length} video${cap.videos.length > 1 ? 's' : ''}`);
-  if (cap.modalidad !== 'virtual') partes.push(MODALIDADES[cap.modalidad]);
+  if (cap.modalidad === 'en_vivo') {
+    const prox = proximaReunion(cap, api.marca());
+    partes.push(prox ? `En vivo por Teams · ${fmtFecha(prox.fecha)} ${prox.hora_inicio}` : 'En vivo por Teams');
+  } else {
+    if (cap.videos.length) partes.push(`${cap.videos.length} video${cap.videos.length > 1 ? 's' : ''}`);
+    if (cap.modalidad !== 'virtual') partes.push(MODALIDADES[cap.modalidad]);
+  }
   partes.push(`${cap.duracion_min} min`);
   if (cap.preguntas.length) partes.push('cuestionario');
   return partes.join(' · ');
@@ -39,7 +49,7 @@ export function vistaMisCapacitaciones() {
       <article class="card-cap">
         <div class="mini ${esc(c.categoria)}">
           <span class="tag">${c.obligatoria ? 'Obligatoria' : 'Opcional'} · ${esc(CATEGORIAS[c.categoria])}</span>
-          <span class="play" aria-hidden="true">${c.modalidad === 'presencial' ? ico.qr : ico.play}</span>
+          <span class="play" aria-hidden="true">${c.modalidad === 'presencial' ? ico.qr : c.modalidad === 'en_vivo' ? ico.camara : ico.play}</span>
         </div>
         <div class="info">
           <div>${pillEstado(r)}</div>
@@ -87,13 +97,16 @@ export function vistaCurso(asigId, query) {
 
   // Pasos del índice
   const pasos = [];
+  const enVivo = cap.modalidad === 'en_vivo';
+  if (enVivo)
+    pasos.push({ id: 'reunion', titulo: 'Reunión en Teams', sub: r.ingresoReunion ? `Ingresaste ${fmtFechaHora(r.ingresoReunion)}` : r.reunionIniciada ? 'Ya comenzó' : 'Fecha y enlace', ok: r.reunionIniciada || !!r.ingresoReunion, accesible: true, num: '▶' });
   if (cap.modalidad !== 'presencial') {
     cap.videos.forEach((v, i) => {
       const accesible = i === 0 || terminado(cap.videos[i - 1].id);
-      pasos.push({ id: `v:${v.id}`, titulo: v.titulo, sub: `Video ${i + 1} · ${fmtDuracion(v.duracion_seg)}`, ok: terminado(v.id), accesible, num: i + 1 });
+      pasos.push({ id: `v:${v.id}`, titulo: v.titulo, sub: `${enVivo ? 'Opcional · ' : ''}Video ${i + 1} · ${fmtDuracion(v.duracion_seg)}`, ok: terminado(v.id), accesible, num: i + 1, opcional: enVivo });
     });
   }
-  if (cap.modalidad !== 'virtual')
+  if (cap.modalidad === 'presencial' || cap.modalidad === 'mixta')
     pasos.push({ id: 'asistencia', titulo: 'Asistencia presencial', sub: r.presencialOk ? 'Registrada' : cap.modalidad === 'mixta' ? 'Escanea el QR o mira los videos' : 'Escanea el QR en la charla', ok: r.presencialOk, accesible: true, num: '⌖' });
   if (r.tieneCuestionario)
     pasos.push({ id: 'cuestionario', titulo: 'Cuestionario', sub: r.aprobado ? `Aprobado · ${r.mejorNota}/${r.totalPreguntas}` : `${r.totalPreguntas} preguntas`, ok: r.aprobado, accesible: r.contenidoOk, num: '?' });
@@ -103,7 +116,7 @@ export function vistaCurso(asigId, query) {
   const elegido = pasos.find((p) => p.id === paso);
   if (!elegido || !elegido.accesible) {
     if (r.firmado) paso = 'fin';
-    else paso = (pasos.find((p) => p.accesible && !p.ok) || pasos[pasos.length - 1]).id;
+    else paso = (pasos.find((p) => p.accesible && !p.ok && !p.opcional) || pasos[pasos.length - 1]).id;
   }
 
   const enlacePaso = (id) => `#/mis-capacitaciones/${asigId}?paso=${encodeURIComponent(id)}`;
@@ -125,6 +138,7 @@ export function vistaCurso(asigId, query) {
   let montar = () => {};
   if (paso.startsWith('v:')) ({ contenido, montar } = panelVideo(cap, asigId, paso.slice(2), d, cerrada));
   else if (paso === 'asistencia') contenido = panelAsistencia(cap, d);
+  else if (paso === 'reunion') ({ contenido, montar } = panelReunion(cap, asigId, d));
   else if (paso === 'cuestionario') ({ contenido, montar } = panelCuestionario(cap, asigId, d, query, cerrada));
   else if (paso === 'firma') ({ contenido, montar } = panelFirma(cap, asigId, d, cerrada));
   else contenido = panelFin(cap, d);
@@ -355,6 +369,58 @@ function panelVideo(cap, asigId, videoId, d, cerrada) {
       }
     });
     pintar();
+  };
+  return { contenido, montar };
+}
+
+function panelReunion(cap, asigId, d) {
+  const r = d.resumen;
+  const ahora = api.marca();
+  const reus = (cap.reuniones || []).slice().sort((a, b) => `${a.fecha}${a.hora_inicio}`.localeCompare(`${b.fecha}${b.hora_inicio}`));
+  const filas = reus
+    .map((x) => {
+      const inicio = `${x.fecha}T${x.hora_inicio}:00`;
+      const fin = `${x.fecha}T${x.hora_fin}:00`;
+      const abre = new Date(new Date(inicio).getTime() - 15 * 60000);
+      const pasada = ahora > fin;
+      const abierta = !pasada && new Date(ahora) >= abre;
+      return `<div class="consulta">
+        <div class="fila" style="justify-content:space-between">
+          <div><b>${esc(fmtFechaLarga(x.fecha))}</b><br><span class="muted">${esc(x.hora_inicio)} a ${esc(x.hora_fin)} · Microsoft Teams</span></div>
+          ${
+            pasada
+              ? '<span class="pill gris">Ya terminó</span>'
+              : abierta
+                ? `<button class="btn btn-primario" data-unirse="${esc(x.id)}">${ico.camara} Unirme a la reunión</button>`
+                : '<span class="pill naranja">El botón se activa 15 min antes</span>'
+          }
+        </div></div>`;
+    })
+    .join('');
+  const siguiente = r.contenidoOk
+    ? r.tieneCuestionario
+      ? `<a class="btn btn-primario" href="#/mis-capacitaciones/${asigId}?paso=cuestionario" style="align-self:flex-start">Responder el cuestionario →</a>`
+      : `<a class="btn btn-primario" href="#/mis-capacitaciones/${asigId}?paso=firma" style="align-self:flex-start">Ir a firmar →</a>`
+    : '';
+  const contenido = `<div class="tarjeta pila">
+    <h2>Reunión en vivo por Teams</h2>
+    <p>Esta capacitación se dicta en una reunión de Microsoft Teams. Elige el horario que te acomode y entra con el botón <b>«Unirme a la reunión»</b>.</p>
+    ${r.ingresoReunion ? `<div class="aviso ok">✓ Ingresaste a la reunión el ${esc(fmtFechaHora(r.ingresoReunion))}.</div>` : ''}
+    <div class="pila">${filas || '<p class="muted">RR.HH. aún no publica la fecha de la reunión.</p>'}</div>
+    <div class="aviso info">${r.tieneCuestionario ? 'Al terminar, responde el <b>&nbsp;cuestionario&nbsp;</b> y firma tu asistencia. El cuestionario se habilita cuando empieza la reunión.' : 'Al terminar, firma tu asistencia.'}</div>
+    ${cap.videos.length ? '<p class="muted small">¿No pudiste conectarte? Puedes ver la grabación en el índice de contenido.</p>' : ''}
+    ${siguiente}
+  </div>`;
+  const montar = (root) => {
+    root.querySelectorAll('[data-unirse]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const enlace = intentar(() => api.unirseReunion(sesion.uid, asigId, b.dataset.unirse, navigator.userAgent));
+        if (enlace) {
+          window.open(enlace, '_blank', 'noopener');
+          app.refrescar();
+        }
+      })
+    );
   };
   return { contenido, montar };
 }
