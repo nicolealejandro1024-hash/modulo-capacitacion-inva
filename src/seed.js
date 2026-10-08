@@ -113,6 +113,7 @@ export function crearSemilla(hoy) {
       estado: 'publicada',
       asignacion: { modo: 'area', valores: ['Ingeniería', 'Proyectos', 'Recursos Humanos'] },
       recordatorios: { ...recordatoriosDefault, copia_jefe_directo: false },
+      pedir_firma: false,
       reuniones: [
         { id: 'reu1', fecha: d(-1), hora_inicio: '10:00', hora_fin: '11:00', enlace: 'https://teams.microsoft.com/l/meetup-join/EJEMPLO-1' },
         { id: 'reu2', fecha: d(2), hora_inicio: '16:00', hora_fin: '17:00', enlace: 'https://teams.microsoft.com/l/meetup-join/EJEMPLO-2' },
@@ -125,6 +126,34 @@ export function crearSemilla(hoy) {
       creado_por: 'u1',
       creado_en: ts(-3, 9),
       actualizado_en: ts(-3, 9),
+    },
+    {
+      id: 'cap6',
+      titulo: 'Presentación de beneficios 2026',
+      descripcion: 'Reunión informativa por Teams con la empresa aseguradora (capacitador externo). Sin cuestionario: RR.HH. registra la asistencia. (Ejemplo).',
+      categoria: 'otra',
+      obligatoria: false,
+      modalidad: 'en_vivo',
+      capacitador_nombre: '[Nombre del expositor]',
+      capacitador_cargo: '[Empresa aseguradora]',
+      lugar: '',
+      duracion_min: 45,
+      fecha_limite: d(3),
+      dias_para_completar: 7,
+      nota_minima: 0,
+      intentos_max: null,
+      mostrar_respuestas: false,
+      asignar_nuevos_ingresos: false,
+      estado: 'publicada',
+      asignacion: { modo: 'area', valores: ['Proyectos', 'Recursos Humanos', 'Administración'] },
+      recordatorios: { ...recordatoriosDefault, copia_jefe_directo: false },
+      pedir_firma: false,
+      reuniones: [{ id: 'reu3', fecha: d(-1), hora_inicio: '11:00', hora_fin: '11:45', enlace: 'https://teams.microsoft.com/l/meetup-join/EJEMPLO-3' }],
+      videos: [],
+      preguntas: [],
+      creado_por: 'u1',
+      creado_en: ts(-4, 10),
+      actualizado_en: ts(-4, 10),
     },
     {
       id: 'cap3',
@@ -188,6 +217,7 @@ export function crearSemilla(hoy) {
     { id: 'r5', capacitacion_id: 'cap3', usuario_id: 'u3', rol: 'propietario', agregado_por: 'u3', agregado_en: ts(-4, 15) },
     { id: 'r6', capacitacion_id: 'cap3', usuario_id: 'u4', rol: 'editor', agregado_por: 'u3', agregado_en: ts(-4, 15, 1) },
     { id: 'r7', capacitacion_id: 'cap4', usuario_id: 'u1', rol: 'propietario', agregado_por: 'u1', agregado_en: ts(-1, 16) },
+    { id: 'r9', capacitacion_id: 'cap6', usuario_id: 'u1', rol: 'propietario', agregado_por: 'u1', agregado_en: ts(-4, 10) },
     { id: 'r8', capacitacion_id: 'cap5', usuario_id: 'u1', rol: 'propietario', agregado_por: 'u1', agregado_en: ts(-3, 9) },
   ];
 
@@ -274,16 +304,15 @@ export function crearSemilla(hoy) {
   const c5 = capacitaciones.find((c) => c.id === 'cap5');
   for (const u of usuarios.filter((x) => c5.asignacion.valores.includes(x.area))) {
     const a = asignar('cap5', u.id, c5.fecha_limite, -3);
-    if (['c1', 'c2', 'u2'].includes(u.id)) asistencias.push({ id: `as${a}`, asignacion_id: a, sesion_id: 'reu1', tipo: 'en_vivo', registrado_en: ts(-1, 9, 58), firma_id: null, firmado_en: null, dispositivo: 'Demo' });
-    if (u.id === 'c1') {
-      rendir(a, c5, 2, 1, -1);
-      const as = asistencias.find((x) => x.asignacion_id === a);
-      firmas.push({ id: `f${a}`, usuario_id: 'c1', imagen: firmaDemo(6), creado_en: ts(-1, 11, 10) });
-      as.firma_id = `f${a}`;
-      as.firmado_en = ts(-1, 11, 11);
-      asignaciones.find((x) => x.id === a).completado_en = as.firmado_en;
-    }
+    if (u.id === 'c1' || u.id === 'u2') rendir(a, c5, 2, 1, -1);
     if (u.id === 'c2') rendir(a, c5, 1, 1, -1);
+  }
+
+  // Presentación de beneficios (cap6): en vivo SIN cuestionario → la asistencia la marca RR.HH.
+  const c6 = capacitaciones.find((c) => c.id === 'cap6');
+  for (const u of usuarios.filter((x) => c6.asignacion.valores.includes(x.area))) {
+    const a = asignar('cap6', u.id, c6.fecha_limite, -4);
+    if (['c5', 'u2'].includes(u.id)) asistencias.push({ id: `as${a}`, asignacion_id: a, sesion_id: null, tipo: 'presencial_manual', registrado_en: ts(-1, 12), firma_id: null, firmado_en: null, dispositivo: 'Registrado por Nicole Alejandro' });
   }
 
   // Inducción HC (cap3): personas puntuales.

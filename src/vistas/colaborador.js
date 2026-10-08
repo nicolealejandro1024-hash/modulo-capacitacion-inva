@@ -11,7 +11,7 @@ export function pillEstado(r) {
 }
 
 function textoVence(asig, r) {
-  if (r.firmado) return `Completado el ${fmtFecha(r.firmadoEn)}`;
+  if (r.completado) return `Completado el ${fmtFecha(r.completadoEn)}`;
   const dias = diasEntre(api.hoy(), asig.fecha_limite);
   if (dias < 0) return `Venció el ${fmtFecha(asig.fecha_limite)}`;
   if (dias === 0) return 'Vence hoy';
@@ -44,7 +44,7 @@ export function vistaMisCapacitaciones() {
   const completadas = lista.filter((x) => x.resumen.estado === 'completado').length;
   const cards = lista
     .map(({ asignacion: a, capacitacion: c, resumen: r }) => {
-      const cta = r.estado === 'completado' ? 'Ver de nuevo' : r.estado === 'pendiente_firma' ? 'Firmar' : r.porcentaje > 0 || r.presencialOk ? 'Continuar' : 'Comenzar';
+      const cta = r.estado === 'completado' ? 'Ver de nuevo' : !r.requiereAccion ? 'Ver detalle' : r.estado === 'pendiente_firma' ? 'Firmar' : r.porcentaje > 0 || r.presencialOk ? 'Continuar' : 'Comenzar';
       return `
       <article class="card-cap">
         <div class="mini ${esc(c.categoria)}">
@@ -99,7 +99,7 @@ export function vistaCurso(asigId, query) {
   const pasos = [];
   const enVivo = cap.modalidad === 'en_vivo';
   if (enVivo)
-    pasos.push({ id: 'reunion', titulo: 'Reunión en Teams', sub: r.ingresoReunion ? `Ingresaste ${fmtFechaHora(r.ingresoReunion)}` : r.reunionIniciada ? 'Ya comenzó' : 'Fecha y enlace', ok: r.reunionIniciada || !!r.ingresoReunion, accesible: true, num: '▶' });
+    pasos.push({ id: 'reunion', titulo: 'Reunión en Teams', sub: r.presencialOk ? 'Asistencia registrada' : r.reunionIniciada ? 'Ya se realizó' : 'Fecha y hora', ok: r.contenidoOk, accesible: true, num: '▶' });
   if (cap.modalidad !== 'presencial') {
     cap.videos.forEach((v, i) => {
       const accesible = i === 0 || terminado(cap.videos[i - 1].id);
@@ -110,12 +110,12 @@ export function vistaCurso(asigId, query) {
     pasos.push({ id: 'asistencia', titulo: 'Asistencia presencial', sub: r.presencialOk ? 'Registrada' : cap.modalidad === 'mixta' ? 'Escanea el QR o mira los videos' : 'Escanea el QR en la charla', ok: r.presencialOk, accesible: true, num: '⌖' });
   if (r.tieneCuestionario)
     pasos.push({ id: 'cuestionario', titulo: 'Cuestionario', sub: r.aprobado ? `Aprobado · ${r.mejorNota}/${r.totalPreguntas}` : `${r.totalPreguntas} preguntas`, ok: r.aprobado, accesible: r.contenidoOk, num: '?' });
-  pasos.push({ id: 'firma', titulo: 'Firma de asistencia', sub: r.firmado ? `Firmado ${fmtFecha(r.firmadoEn)}` : 'Declaración y firma', ok: r.firmado, accesible: r.contenidoOk && r.cuestionarioOk, num: '✎' });
+  if (r.requiereFirma) pasos.push({ id: 'firma', titulo: 'Firma de asistencia', sub: r.firmado ? `Firmado ${fmtFecha(r.firmadoEn)}` : 'Declaración y firma', ok: r.firmado, accesible: r.contenidoOk && r.cuestionarioOk, num: '✎' });
 
   let paso = query.get('paso');
   const elegido = pasos.find((p) => p.id === paso);
   if (!elegido || !elegido.accesible) {
-    if (r.firmado) paso = 'fin';
+    if (r.completado) paso = 'fin';
     else paso = (pasos.find((p) => p.accesible && !p.ok && !p.opcional) || pasos[pasos.length - 1]).id;
   }
 
@@ -375,54 +375,34 @@ function panelVideo(cap, asigId, videoId, d, cerrada) {
 
 function panelReunion(cap, asigId, d) {
   const r = d.resumen;
-  const ahora = api.marca();
   const reus = (cap.reuniones || []).slice().sort((a, b) => `${a.fecha}${a.hora_inicio}`.localeCompare(`${b.fecha}${b.hora_inicio}`));
+  const ahora = api.marca();
   const filas = reus
-    .map((x) => {
-      const inicio = `${x.fecha}T${x.hora_inicio}:00`;
-      const fin = `${x.fecha}T${x.hora_fin}:00`;
-      const abre = new Date(new Date(inicio).getTime() - 15 * 60000);
-      const pasada = ahora > fin;
-      const abierta = !pasada && new Date(ahora) >= abre;
-      return `<div class="consulta">
-        <div class="fila" style="justify-content:space-between">
-          <div><b>${esc(fmtFechaLarga(x.fecha))}</b><br><span class="muted">${esc(x.hora_inicio)} a ${esc(x.hora_fin)} · Microsoft Teams</span></div>
-          ${
-            pasada
-              ? '<span class="pill gris">Ya terminó</span>'
-              : abierta
-                ? `<button class="btn btn-primario" data-unirse="${esc(x.id)}">${ico.camara} Unirme a la reunión</button>`
-                : '<span class="pill naranja">El botón se activa 15 min antes</span>'
-          }
-        </div></div>`;
-    })
+    .map(
+      (x) => `<div class="consulta"><div class="fila" style="justify-content:space-between">
+        <div><b>${esc(fmtFechaLarga(x.fecha))}</b><br><span class="muted">${esc(x.hora_inicio)} a ${esc(x.hora_fin)} · Microsoft Teams</span></div>
+        ${ahora > `${x.fecha}T${x.hora_fin}:00` ? '<span class="pill gris">Ya se realizó</span>' : x.enlace ? `<a class="btn btn-sec btn-sm" href="${esc(x.enlace)}" target="_blank" rel="noopener">Abrir en Teams</a>` : ''}
+      </div></div>`
+    )
     .join('');
-  const siguiente = r.contenidoOk
-    ? r.tieneCuestionario
-      ? `<a class="btn btn-primario" href="#/mis-capacitaciones/${asigId}?paso=cuestionario" style="align-self:flex-start">Responder el cuestionario →</a>`
-      : `<a class="btn btn-primario" href="#/mis-capacitaciones/${asigId}?paso=firma" style="align-self:flex-start">Ir a firmar →</a>`
-    : '';
-  const contenido = `<div class="tarjeta pila">
-    <h2>Reunión en vivo por Teams</h2>
-    <p>Esta capacitación se dicta en una reunión de Microsoft Teams. Elige el horario que te acomode y entra con el botón <b>«Unirme a la reunión»</b>.</p>
-    ${r.ingresoReunion ? `<div class="aviso ok">✓ Ingresaste a la reunión el ${esc(fmtFechaHora(r.ingresoReunion))}.</div>` : ''}
-    <div class="pila">${filas || '<p class="muted">RR.HH. aún no publica la fecha de la reunión.</p>'}</div>
-    <div class="aviso info">${r.tieneCuestionario ? 'Al terminar, responde el <b>&nbsp;cuestionario&nbsp;</b> y firma tu asistencia. El cuestionario se habilita cuando empieza la reunión.' : 'Al terminar, firma tu asistencia.'}</div>
-    ${cap.videos.length ? '<p class="muted small">¿No pudiste conectarte? Puedes ver la grabación en el índice de contenido.</p>' : ''}
-    ${siguiente}
-  </div>`;
-  const montar = (root) => {
-    root.querySelectorAll('[data-unirse]').forEach((b) =>
-      b.addEventListener('click', () => {
-        const enlace = intentar(() => api.unirseReunion(sesion.uid, asigId, b.dataset.unirse, navigator.userAgent));
-        if (enlace) {
-          window.open(enlace, '_blank', 'noopener');
-          app.refrescar();
-        }
-      })
-    );
+  let queHacer;
+  if (r.completado) queHacer = '<div class="aviso ok">✓ Completaste esta capacitación.</div>';
+  else if (r.tieneCuestionario)
+    queHacer = r.contenidoOk
+      ? `<div class="aviso info">Después de la reunión responde el cuestionario${r.requiereFirma ? ' y firma tu asistencia' : ''}.</div><a class="btn btn-primario" href="#/mis-capacitaciones/${asigId}?paso=cuestionario" style="align-self:flex-start">Responder el cuestionario →</a>`
+      : `<div class="aviso info">Después de la reunión vuelve aquí para responder el cuestionario${r.requiereFirma ? ' y firmar' : ''}. Se habilita cuando empieza la reunión.</div>`;
+  else if (r.contenidoOk && r.requiereFirma) queHacer = `<a class="btn btn-primario" href="#/mis-capacitaciones/${asigId}?paso=firma" style="align-self:flex-start">Firmar mi asistencia →</a>`;
+  else queHacer = '<div class="aviso info">No tienes que hacer nada en el portal: RR.HH. registrará tu asistencia después de la reunión.</div>';
+  return {
+    contenido: `<div class="tarjeta pila">
+      <h2>Reunión en vivo por Teams</h2>
+      <p>Esta capacitación es una reunión de Microsoft Teams. Te llega la invitación a tu calendario de Outlook/Teams: <b>entra directamente desde ahí</b>, como cualquier reunión.</p>
+      <div class="pila">${filas || '<p class="muted">RR.HH. aún no publica la fecha de la reunión.</p>'}</div>
+      ${queHacer}
+      ${cap.videos.length && !r.completado ? '<p class="muted small">¿No pudiste conectarte? Puedes ver la grabación desde el índice de contenido.</p>' : ''}
+    </div>`,
+    montar: () => {},
   };
-  return { contenido, montar };
 }
 
 function panelAsistencia(cap, d) {
@@ -472,7 +452,9 @@ function panelCuestionario(cap, asigId, d, query, cerrada) {
           <span class="muted small">Intento ${res.numero_intento} · nota mínima ${cap.nota_minima}/${cap.preguntas.length}</span></div>
         ${
           r.aprobado
-            ? `<a class="btn btn-primario" href="#/mis-capacitaciones/${asigId}?paso=firma" style="align-self:flex-start">${r.firmado ? 'Ver firma' : 'Continuar a la firma →'}</a>`
+            ? r.requiereFirma
+              ? `<a class="btn btn-primario" href="#/mis-capacitaciones/${asigId}?paso=firma" style="align-self:flex-start">${r.firmado ? 'Ver firma' : 'Continuar a la firma →'}</a>`
+              : `<div class="aviso ok">✓ ¡Listo! Completaste la capacitación.</div>`
             : r.sinIntentos
               ? `<div class="aviso error">Ya no te quedan intentos. RR.HH. puede habilitarte uno nuevo.</div>`
               : `<div class="fila"><a class="btn btn-primario" href="#/mis-capacitaciones/${asigId}?paso=cuestionario&nuevo=1" ${cerrada ? 'aria-disabled="true"' : ''}>Intentar de nuevo</a><span class="muted small">${quedan}</span></div>`
@@ -516,7 +498,7 @@ function panelCuestionario(cap, asigId, d, query, cerrada) {
 }
 
 function panelFirma(cap, asigId, d, cerrada) {
-  if (d.resumen.firmado) return { contenido: panelFin(cap, d), montar: () => {} };
+  if (d.resumen.completado) return { contenido: panelFin(cap, d), montar: () => {} };
   const perfil = api.perfil(sesion.uid);
   const declaracion = `Declaro haber participado en la capacitación «${cap.titulo}» el ${fmtFechaLarga(api.hoy())}, con una duración de ${cap.duracion_min} minutos.`;
   const contenido = `<form class="tarjeta pila" id="form-firma">
@@ -581,7 +563,7 @@ function panelFin(cap, d) {
   return `<div class="tarjeta pila" style="text-align:center;align-items:center;padding:36px 20px">
     <div style="width:64px;height:64px;border-radius:50%;background:var(--verde-bg);color:var(--verde);display:flex;align-items:center;justify-content:center;font-size:30px">✓</div>
     <h2>¡Capacitación completada!</h2>
-    <p class="muted">Firmaste tu asistencia el ${esc(fmtFechaHora(r.firmadoEn))}${r.mejorNota !== null ? ` · nota ${r.mejorNota}/${r.totalPreguntas}` : ''}.${r.fueraDePlazo ? ' (Completada fuera de plazo).' : ''}</p>
+    <p class="muted">${r.firmado ? 'Firmaste tu asistencia' : r.tieneCuestionario ? 'Aprobaste el cuestionario' : 'RR.HH. registró tu asistencia'} el ${esc(fmtFechaHora(r.completadoEn))}${r.mejorNota !== null ? ` · nota ${r.mejorNota}/${r.totalPreguntas}` : ''}.${r.fueraDePlazo ? ' (Completada fuera de plazo).' : ''}</p>
     <p class="muted small">RR.HH. ya puede ver tu resultado. Puedes volver a ver los videos cuando quieras.</p>
     <a class="btn btn-oscuro" href="#/mis-capacitaciones">Volver a mis capacitaciones</a>
   </div>`;

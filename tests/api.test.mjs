@@ -154,25 +154,37 @@ test('preguntas: el colaborador pregunta, solo responsables con permiso responde
   assert.ok(api.db.notificaciones.some((n) => n.usuario_id === 'c4' && n.titulo === 'Respondieron tu pregunta'));
 });
 
-test('virtual en vivo (Teams): solo exige cuestionario y firma; registra ingreso a la reunión', () => {
-  // Reunión "reu2" es en 2 días a las 16:00. Antes de que empiece no hay cuestionario.
+test('virtual en vivo (Teams) CON cuestionario: se completa al aprobar, sin firma ni ingreso por el portal', () => {
+  const api = nuevaApi(); // 07/10 10:00
+  api.db.capacitaciones.find((c) => c.id === 'cap5').reuniones = [{ id: 'r', fecha: '2026-10-07', hora_inicio: '10:30', hora_fin: '11:30', enlace: '' }];
+  const a = api.db.asignaciones.find((x) => x.colaborador_id === 'c8' && x.capacitacion_id === 'cap5');
+  // Antes de que empiece la reunión no hay cuestionario.
+  assert.throws(() => api.enviarCuestionario('c8', a.id, { p7: 1, p8: 1 }), ErrorNegocio);
+  const despues = new Api({ ahora: () => new Date('2026-10-07T10:31:00') });
+  despues.db = api.db;
+  const r = despues.enviarCuestionario('c8', a.id, { p7: 1, p8: 1 });
+  assert.equal(r.resumen.estado, 'completado');
+  assert.equal(r.resumen.requiereFirma, false);
+  assert.throws(() => despues.firmarAsistencia('c8', a.id, { imagen: 'data:image/png;base64,x', aceptaDeclaracion: true }), ErrorNegocio);
+  // Aparece en el registro de asistencia.
+  assert.ok(despues.datosRegistro('u1', 'cap5').filas.some((f) => f.asignacion.id === a.id));
+});
+
+test('virtual en vivo SIN cuestionario: RR.HH. registra la asistencia de varios; no se recuerda al colaborador', () => {
   const api = nuevaApi();
-  api.db.capacitaciones.find((c) => c.id === 'cap5').reuniones = [{ id: 'r', fecha: '2026-10-07', hora_inicio: '10:30', hora_fin: '11:30', enlace: 'https://teams.microsoft.com/x' }];
-  const a = api.db.asignaciones.find((x) => x.colaborador_id === 'c5' && x.capacitacion_id === 'cap5');
-  assert.throws(() => api.enviarCuestionario('c5', a.id, { p7: 1, p8: 1 }), ErrorNegocio);
-  assert.throws(() => api.unirseReunion('c5', a.id, 'r'), ErrorNegocio); // 10:00, abre a las 10:15
-  // A las 10:20 ya puede unirse; al empezar (10:30) se habilita el cuestionario aunque no haya entrado.
-  const api2 = new Api({ ahora: () => new Date('2026-10-07T10:20:00') });
-  api2.db = api.db;
-  assert.equal(api2.unirseReunion('c5', a.id, 'r'), 'https://teams.microsoft.com/x');
-  assert.ok(api2.resumen(a).ingresoReunion);
-  const api3 = new Api({ ahora: () => new Date('2026-10-07T10:31:00') });
-  api3.db = api.db;
-  const b = api3.db.asignaciones.find((x) => x.colaborador_id === 'c8' && x.capacitacion_id === 'cap5');
-  const r = api3.enviarCuestionario('c8', b.id, { p7: 1, p8: 1 });
-  assert.equal(r.resumen.estado, 'pendiente_firma');
-  assert.equal(api3.firmarAsistencia('c8', b.id, { imagen: 'data:image/png;base64,x', aceptaDeclaracion: true }).resumen.estado, 'completado');
-  // Publicar exige enlace de Teams.
-  const id = api3.guardarCapacitacion('u1', null, { titulo: 'En vivo', modalidad: 'en_vivo', reuniones: [{ fecha: '2026-10-10', hora_inicio: '09:00', hora_fin: '10:00', enlace: '' }] });
-  assert.throws(() => api3.cambiarEstado('u1', id, 'publicada'), /enlace de Teams/);
+  const pend = api.db.asignaciones.filter((x) => x.capacitacion_id === 'cap6' && !api.resumen(x).completado);
+  assert.ok(pend.length >= 2);
+  assert.ok(pend.every((x) => api.resumen(x).requiereAccion === false));
+  assert.deepEqual(api.enviarRecordatorios('u1', 'cap6', pend.map((x) => x.id)), { enviados: 0, omitidos: pend.length });
+  // Un solo lectura o un no responsable no puede marcar.
+  assert.throws(() => api.registrarAsistencias('u3', 'cap6', [pend[0].id]), AccesoDenegado);
+  assert.equal(api.registrarAsistencias('u1', 'cap6', pend.map((x) => x.id)).marcados, pend.length);
+  assert.ok(pend.every((x) => api.resumen(x).estado === 'completado'));
+  api.quitarAsistencia('u1', 'cap6', pend[0].id);
+  assert.notEqual(api.resumen(pend[0]).estado, 'completado');
+  // Publicar exige fecha de la reunión (el enlace es opcional).
+  const id = api.guardarCapacitacion('u1', null, { titulo: 'En vivo', modalidad: 'en_vivo' });
+  assert.throws(() => api.cambiarEstado('u1', id, 'publicada'), /fecha y hora/);
+  api.guardarCapacitacion('u1', id, { titulo: 'En vivo', modalidad: 'en_vivo', reuniones: [{ fecha: '2026-10-10', hora_inicio: '09:00', hora_fin: '10:00' }] });
+  assert.ok(api.cambiarEstado('u1', id, 'publicada').nuevos > 0);
 });

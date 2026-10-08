@@ -203,12 +203,18 @@ export function vistaEditor(capId) {
           <label class="campo"><span>Fecha</span><input type="date" data-r="${i}:fecha" value="${esc(r.fecha)}"></label>
           <label class="campo"><span>Hora de inicio</span><input type="time" data-r="${i}:hora_inicio" value="${esc(r.hora_inicio)}"></label>
           <label class="campo"><span>Hora de fin</span><input type="time" data-r="${i}:hora_fin" value="${esc(r.hora_fin)}"></label>
-          <label class="campo full"><span>Enlace de la reunión de Teams</span><input type="url" data-r="${i}:enlace" value="${esc(r.enlace)}" placeholder="https://teams.microsoft.com/l/meetup-join/…">
-            <small>En Teams: abre la reunión en el calendario → «Copiar vínculo» y pégalo aquí.</small></label>
+          <label class="campo full"><span>Enlace de Teams (opcional)</span><input type="url" data-r="${i}:enlace" value="${esc(r.enlace)}" placeholder="https://teams.microsoft.com/l/meetup-join/…">
+            <small>La invitación se envía desde Teams/Outlook como siempre. El enlace aquí es solo de referencia.</small></label>
         </div></div>`
       )
       .join('')}
-    <button type="button" class="btn btn-sec" data-accion="agregar-reu" style="align-self:flex-start">+ Agregar reunión</button>`;
+    <button type="button" class="btn btn-sec" data-accion="agregar-reu" style="align-self:flex-start">+ Agregar reunión</button>
+    <div class="aviso info" style="flex-direction:column;gap:4px">
+      <b>¿Cómo se completa?</b>
+      <span>• <b>Con cuestionario:</b> la persona lo responde en el portal después de la reunión y queda completada al aprobarlo.</span>
+      <span>• <b>Sin cuestionario:</b> la persona no hace nada en el portal; tú registras la asistencia desde el Seguimiento (puedes marcar a varios a la vez).</span>
+    </div>
+    <label class="check"><input type="checkbox" data-f="pedir_firma" ${f.pedir_firma ? 'checked' : ''}> <span>Pedir además la firma de asistencia en el portal <span class="muted small">(opcional)</span></span></label>`;
 
   const seccionPreguntas = () => `
     <div class="form-grid">
@@ -336,9 +342,9 @@ export function vistaEditor(capId) {
         ${f.modalidad === 'presencial' || f.modalidad === 'mixta' ? `<label class="campo full"><span>Lugar</span><input type="text" data-f="lugar" value="${esc(f.lugar)}" placeholder="Ej.: Oficina Lima – Sala 1 / Obra …"></label>` : ''}
       </div>`
     )}
-    ${f.modalidad === 'en_vivo' ? tarjeta('sec-reuniones', 'Reuniones de Teams', seccionReuniones(), 'El colaborador verá la fecha y el botón «Unirme a la reunión» (se activa 15 minutos antes). Recibe un aviso el día de la reunión.') : ''}
+    ${f.modalidad === 'en_vivo' ? tarjeta('sec-reuniones', 'Reuniones de Teams', seccionReuniones(), 'La gente entra directo desde la invitación de Teams. Aquí solo se indica la fecha y la hora.') : ''}
     ${tarjeta('sec-videos', f.modalidad === 'en_vivo' ? 'Grabación (opcional)' : 'Videos', seccionVideos(), 'Se ven en este orden y no se puede pasar al siguiente sin terminar el actual.')}
-    ${tarjeta('sec-preguntas', 'Cuestionario', seccionPreguntas(), f.modalidad === 'en_vivo' ? 'Se habilita cuando empieza la reunión. Es lo único obligatorio (además de la firma).' : 'Se desbloquea al terminar los videos (o al confirmar asistencia en presencial).')}
+    ${tarjeta('sec-preguntas', 'Cuestionario', seccionPreguntas(), f.modalidad === 'en_vivo' ? 'Opcional. Se habilita cuando empieza la reunión. Si no agregas preguntas, registras tú la asistencia.' : 'Se desbloquea al terminar los videos (o al confirmar asistencia en presencial).')}
     ${tarjeta('sec-asignacion', 'Asignación', seccionAsignacion())}
     ${tarjeta('sec-recordatorios', 'Recordatorios', seccionRecordatorios())}
     ${tarjeta('sec-responsables', 'Responsables', seccionResponsables())}

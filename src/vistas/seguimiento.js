@@ -17,8 +17,8 @@ const recordadoHoy = (f) => f.ultimoRecordatorio?.tipo === 'manual' && f.ultimoR
 
 function celdaContenido(cap, r) {
   if (cap.modalidad === 'en_vivo') {
-    const ingreso = r.ingresoReunion ? `<span class="pill verde">Ingresó</span> <span class="det">${esc(fmtFechaHora(r.ingresoReunion))}</span>` : r.presencialOk ? '<span class="pill verde">Marcado por RR.HH.</span>' : '<span class="muted">No ingresó</span>';
-    return `${ingreso}${r.totalVideos && r.videosVistos ? `<br><span class="det">Grabación ${r.videosVistos}/${r.totalVideos}</span>` : ''}`;
+    const asis = r.presencialOk ? '<span class="pill verde">Registrada</span>' : cap.preguntas.length ? '<span class="muted">No aplica</span>' : '<span class="muted">Sin registrar</span>';
+    return `${asis}${r.totalVideos && r.videosVistos ? `<br><span class="det">Grabación ${r.videosVistos}/${r.totalVideos}</span>` : ''}`;
   }
   if (cap.modalidad === 'presencial') return r.presencialOk ? '<span class="pill verde">Asistió</span>' : '<span class="muted">—</span>';
   const txt = `${r.videosVistos}/${r.totalVideos}`;
@@ -31,25 +31,34 @@ export function vistaSeguimiento(capId) {
   const { capacitacion: cap, kpis: k, permisos } = s;
   const otras = api.listarCapacitacionesAdmin(uid).filter((x) => x.capacitacion.estado !== 'borrador');
   const pct = (n) => (k.asignados ? `${Math.round((n / k.asignados) * 100)} %` : '0 %');
-  const pendientesRecordar = s.filas.filter((f) => FALTAN.includes(f.resumen.estado) && !recordadoHoy(f));
+  const pendientesRecordar = s.filas.filter((f) => FALTAN.includes(f.resumen.estado) && f.resumen.requiereAccion && !recordadoHoy(f));
+  // Reunión de Teams sin cuestionario: RR.HH. marca la asistencia (se puede seleccionar a varios).
+  const marcarAsistencia = cap.modalidad === 'en_vivo' && !cap.preguntas.length && permisos.editar;
   const areas = [...new Set(s.filas.map((f) => f.colaborador.area))].sort((a, b) => a.localeCompare(b, 'es'));
 
   const filas = s.filas
     .map((f) => {
       const r = f.resumen;
-      const accion = !permisos.recordar
+      const accion = marcarAsistencia
+        ? r.presencialOk
+          ? r.firmado
+            ? ''
+            : `<button class="btn btn-link btn-sm" data-quitar-asis="${esc(f.asignacion.id)}">Quitar asistencia</button>`
+          : `<button class="btn btn-sec btn-sm" data-marcar="${esc(f.asignacion.id)}">Marcar asistió</button>`
+        : !permisos.recordar
         ? ''
-        : r.firmado
+        : !r.requiereAccion
           ? ''
           : recordadoHoy(f)
             ? `<span class="small muted">Recordatorio enviado · ${esc(fmtFechaHora(f.ultimoRecordatorio.enviado_en).split(',').pop().trim())}</span>`
             : `<button class="btn btn-sec btn-sm" data-recordar="${esc(f.asignacion.id)}">Enviar recordatorio</button>`;
       return `<tr data-estado="${r.estado}" data-area="${esc(f.colaborador.area)}" data-nombre="${esc(f.colaborador.nombre.toLowerCase())}">
+        ${marcarAsistencia ? `<td>${r.presencialOk ? '' : `<input type="checkbox" data-sel="${esc(f.asignacion.id)}" aria-label="Seleccionar a ${esc(f.colaborador.nombre)}" style="width:20px;height:20px;accent-color:var(--naranja)">`}</td>` : ''}
         <td><a class="nombre" href="#/capacitaciones/${esc(capId)}/persona/${esc(f.asignacion.id)}" style="color:inherit">${esc(f.colaborador.nombre)}</a><span class="det">${esc(f.colaborador.cargo)} · vence ${esc(fmtFecha(f.asignacion.fecha_limite))}</span></td>
         <td>${esc(f.colaborador.area)}</td>
         <td>${celdaContenido(cap, r)}</td>
         <td>${r.tieneCuestionario ? (r.mejorNota !== null ? `<b>${r.mejorNota}/${r.totalPreguntas}</b> <span class="det">${r.aprobado ? 'aprobado' : 'desaprobado'} · ${r.intentosUsados} int.</span>` : '<span class="muted">Sin responder</span>') : '<span class="muted">No aplica</span>'}</td>
-        <td>${r.firmado ? `<span class="pill verde">Sí</span> <span class="det">${esc(fmtFecha(r.firmadoEn))}</span>` : '<span class="muted">No</span>'}</td>
+        <td>${r.firmado ? `<span class="pill verde">Sí</span> <span class="det">${esc(fmtFecha(r.firmadoEn))}</span>` : r.requiereFirma ? '<span class="muted">No</span>' : '<span class="muted">No aplica</span>'}</td>
         <td>${pillEstado(r)}${r.sinIntentos ? ' <span class="pill rojo">Sin intentos</span>' : ''}</td>
         <td><div class="acciones" style="flex-wrap:nowrap">${accion}<a class="btn btn-link btn-sm" href="#/capacitaciones/${esc(capId)}/persona/${esc(f.asignacion.id)}">Detalle</a></div></td>
       </tr>`;
@@ -60,13 +69,10 @@ export function vistaSeguimiento(capId) {
     cap.modalidad !== 'en_vivo'
       ? ''
       : `<div class="tarjeta sin-pad"><div class="filtros"><h2>Reuniones de Teams</h2>${permisos.editar ? `<a class="btn btn-sec btn-sm" href="#/capacitaciones/${esc(capId)}/editar">Editar horarios</a>` : ''}</div>
-        <div class="tabla-wrap"><table><thead><tr><th>Fecha</th><th>Horario</th><th>Ingresaron</th><th>Enlace</th></tr></thead><tbody>${(cap.reuniones || [])
-          .map((x) => {
-            const n = s.filas.filter((f) => f.resumen.ingresoReunion && api.db.asistencias.some((a) => a.asignacion_id === f.asignacion.id && a.sesion_id === x.id)).length;
-            return `<tr><td>${esc(fmtFecha(x.fecha))}</td><td>${esc(x.hora_inicio)}–${esc(x.hora_fin)}</td><td><b>${n}</b></td><td><a href="${esc(x.enlace)}" target="_blank" rel="noopener">Abrir en Teams</a></td></tr>`;
-          })
+        <div class="tabla-wrap"><table><thead><tr><th>Fecha</th><th>Horario</th><th>Enlace</th></tr></thead><tbody>${(cap.reuniones || [])
+          .map((x) => `<tr><td>${esc(fmtFecha(x.fecha))}</td><td>${esc(x.hora_inicio)}–${esc(x.hora_fin)}</td><td>${x.enlace ? `<a href="${esc(x.enlace)}" target="_blank" rel="noopener">Abrir en Teams</a>` : '—'}</td></tr>`)
           .join('')}</tbody></table></div>
-        <p class="muted small" style="padding:0 16px 14px">Se registra la hora en que cada persona entra con el botón del portal. No se exige un tiempo mínimo: para completar basta con el cuestionario y la firma.</p></div>`;
+        <p class="muted small" style="padding:0 16px 14px">${cap.preguntas.length ? 'La gente entra desde la invitación de Teams y después responde el cuestionario en el portal: al aprobarlo queda completada.' : 'Sin cuestionario: después de la reunión selecciona en la tabla a quienes asistieron (puedes guiarte por la lista de asistencia de Teams) y pulsa «Registrar asistencia».'}</p></div>`;
 
   const sesionesHtml =
     !['presencial', 'mixta'].includes(cap.modalidad)
@@ -102,11 +108,11 @@ export function vistaSeguimiento(capId) {
       <div class="kpi"><span class="et">Asignados</span><span class="num">${k.asignados}</span><span class="det">colaboradores</span></div>
       ${
         cap.modalidad === 'en_vivo'
-          ? `<div class="kpi"><span class="et">Ingresaron a la reunión</span><span class="num">${k.ingresaronReunion}</span><span class="det">${pct(k.ingresaronReunion)} del total</span></div>`
+          ? `<div class="kpi"><span class="et">Asistencia registrada</span><span class="num">${cap.preguntas.length ? '—' : k.asistenciaRegistrada}</span><span class="det">${cap.preguntas.length ? 'se completa con el cuestionario' : `${pct(k.asistenciaRegistrada)} del total`}</span></div>`
           : `<div class="kpi"><span class="et">${cap.modalidad === 'presencial' ? 'Asistieron' : 'Vieron todos los videos'}</span><span class="num">${k.vieronVideos}</span><span class="det">${pct(k.vieronVideos)} del total</span></div>`
       }
       <div class="kpi"><span class="et">Respondieron cuestionario</span><span class="num">${k.respondieron}</span><span class="det">${cap.preguntas.length ? `nota promedio ${k.notaPromedio === null ? '—' : k.notaPromedio.toFixed(1).replace('.', ',') + '/' + cap.preguntas.length}` : 'sin cuestionario'}</span></div>
-      <div class="kpi ok"><span class="et">Firmaron</span><span class="num">${k.firmaron}</span><span class="det">${pct(k.firmaron)} completado</span></div>
+      <div class="kpi ok"><span class="et">${cap.modalidad === 'en_vivo' && !cap.pedir_firma ? 'Completaron' : 'Firmaron'}</span><span class="num">${k.firmaron}</span><span class="det">${pct(k.firmaron)} completado</span></div>
       <div class="kpi alerta"><span class="et">Faltan</span><span class="num">${k.faltan}</span><span class="det">${k.enCurso} en curso · ${k.noIniciaron} no iniciaron</span></div>
       <div class="kpi peligro"><span class="et">Vencidos</span><span class="num">${k.vencidos}</span><span class="det">pasaron la fecha límite</span></div>
     </div>
@@ -118,13 +124,19 @@ export function vistaSeguimiento(capId) {
     <div class="tarjeta sin-pad">
       <div class="filtros">
         <div role="group" aria-label="Filtrar por estado" class="pildoras">${FILTROS.map((fl) => `<button class="pildora" data-filtro="${fl.id}" aria-pressed="${fl.id === 'todos'}">${fl.label} (${fl.estados ? s.filas.filter((x) => fl.estados.includes(x.resumen.estado)).length : s.filas.length})</button>`).join('')}</div>
-        ${permisos.recordar ? `<button class="btn btn-primario btn-sm" id="recordar-todos" ${pendientesRecordar.length ? '' : 'disabled'}>Recordar a los que faltan (${pendientesRecordar.length})</button>` : ''}
+        ${
+          marcarAsistencia
+            ? '<button class="btn btn-primario btn-sm" id="marcar-sel" disabled>Registrar asistencia (0)</button>'
+            : permisos.recordar
+              ? `<button class="btn btn-primario btn-sm" id="recordar-todos" ${pendientesRecordar.length ? '' : 'disabled'}>Recordar a los que faltan (${pendientesRecordar.length})</button>`
+              : ''
+        }
       </div>
       <div class="filtros campo-busq">
         <label class="sr-only" for="buscar">Buscar por nombre</label><input type="search" id="buscar" placeholder="Buscar por nombre…" style="flex:2 1 220px">
         <label class="sr-only" for="f-area">Área</label><select id="f-area" style="flex:1 1 160px"><option value="">Todas las áreas</option>${areas.map((a) => `<option>${esc(a)}</option>`).join('')}</select>
       </div>
-      ${s.filas.length ? `<div class="tabla-wrap"><table><thead><tr><th>Colaborador</th><th>Área</th><th>${cap.modalidad === 'presencial' ? 'Asistencia' : cap.modalidad === 'en_vivo' ? 'Reunión Teams' : 'Videos vistos'}</th><th>Cuestionario</th><th>Firma</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="tbody">${filas}</tbody></table></div><div class="vacio small" id="sin-resultados" hidden>No hay personas con ese filtro.</div>` : '<div class="vacio">Aún no hay personas asignadas.</div>'}
+      ${s.filas.length ? `<div class="tabla-wrap"><table><thead><tr>${marcarAsistencia ? '<th><input type="checkbox" id="sel-todos" aria-label="Seleccionar todos los que faltan" style="width:20px;height:20px;accent-color:var(--naranja)"></th>' : ''}<th>Colaborador</th><th>Área</th><th>${cap.modalidad === 'presencial' || cap.modalidad === 'en_vivo' ? 'Asistencia' : 'Videos vistos'}</th><th>Cuestionario</th><th>Firma</th><th>Estado</th><th>Acción</th></tr></thead><tbody id="tbody">${filas}</tbody></table></div><div class="vacio small" id="sin-resultados" hidden>No hay personas con ese filtro.</div>` : '<div class="vacio">Aún no hay personas asignadas.</div>'}
     </div>
     ${reunionesHtml}
     ${sesionesHtml}
@@ -154,6 +166,39 @@ export function vistaSeguimiento(capId) {
       );
       root.querySelector('#buscar').addEventListener('input', aplicar);
       root.querySelector('#f-area').addEventListener('change', aplicar);
+      const btnSel = root.querySelector('#marcar-sel');
+      const actualizarSel = () => {
+        const n = root.querySelectorAll('[data-sel]:checked').length;
+        if (btnSel) {
+          btnSel.disabled = n === 0;
+          btnSel.textContent = `Registrar asistencia (${n})`;
+        }
+      };
+      root.querySelectorAll('[data-sel]').forEach((c) => c.addEventListener('change', actualizarSel));
+      root.querySelector('#sel-todos')?.addEventListener('change', (e) => {
+        root.querySelectorAll('#tbody tr:not([hidden]) [data-sel]').forEach((c) => (c.checked = e.target.checked));
+        actualizarSel();
+      });
+      btnSel?.addEventListener('click', () => {
+        const ids = [...root.querySelectorAll('[data-sel]:checked')].map((c) => c.dataset.sel);
+        const r = intentar(() => api.registrarAsistencias(uid, capId, ids));
+        if (r) {
+          toast(`Asistencia registrada a ${r.marcados} persona(s).`, 'ok');
+          app.refrescar();
+        }
+      });
+      root.querySelectorAll('[data-marcar]').forEach((b) =>
+        b.addEventListener('click', () => {
+          if (intentar(() => api.registrarAsistencias(uid, capId, [b.dataset.marcar]), 'Asistencia registrada')) app.refrescar();
+        })
+      );
+      root.querySelectorAll('[data-quitar-asis]').forEach((b) =>
+        b.addEventListener('click', async () => {
+          if (!(await confirmar('Quitar asistencia', 'La persona volverá a figurar sin asistencia registrada.', 'Quitar'))) return;
+          intentar(() => api.quitarAsistencia(uid, capId, b.dataset.quitarAsis), 'Asistencia quitada');
+          app.refrescar();
+        })
+      );
       root.querySelectorAll('[data-recordar]').forEach((b) =>
         b.addEventListener('click', () => {
           const r = intentar(() => api.enviarRecordatorios(uid, capId, [b.dataset.recordar]));
@@ -164,7 +209,7 @@ export function vistaSeguimiento(capId) {
         })
       );
       root.querySelector('#recordar-todos')?.addEventListener('click', async () => {
-        if (!(await confirmar('Recordar a los que faltan', `Se enviará un recordatorio (correo + notificación) a ${pendientesRecordar.length} persona(s) en curso, sin iniciar o pendientes de firma.`, 'Enviar'))) return;
+        if (!(await confirmar('Recordar a los que faltan', `Se enviará un recordatorio (correo + notificación) a ${pendientesRecordar.length} persona(s) que aún tienen algo pendiente.`, 'Enviar'))) return;
         const r = intentar(() => api.enviarRecordatorios(uid, capId, pendientesRecordar.map((f) => f.asignacion.id)));
         if (r) {
           toast(`Se enviaron ${r.enviados} recordatorio(s).`, 'ok');
@@ -263,17 +308,17 @@ export function vistaDetallePersona(capId, asigId) {
       <div class="fila">${pillEstado(r)}</div></div>
     <div class="kpis">
       <div class="kpi"><span class="et">Avance</span><span class="num">${r.porcentaje} %</span></div>
-      <div class="kpi"><span class="et">${cap.modalidad === 'presencial' ? 'Asistencia' : cap.modalidad === 'en_vivo' ? 'Ingresó a la reunión' : 'Videos'}</span><span class="num">${cap.modalidad === 'presencial' || cap.modalidad === 'en_vivo' ? (r.presencialOk ? 'Sí' : 'No') : `${r.videosVistos}/${r.totalVideos}`}</span></div>
+      <div class="kpi"><span class="et">${cap.modalidad === 'presencial' || cap.modalidad === 'en_vivo' ? 'Asistencia registrada' : 'Videos'}</span><span class="num">${cap.modalidad === 'presencial' || cap.modalidad === 'en_vivo' ? (r.presencialOk ? 'Sí' : 'No') : `${r.videosVistos}/${r.totalVideos}`}</span></div>
       <div class="kpi"><span class="et">Cuestionario</span><span class="num">${r.tieneCuestionario ? (r.mejorNota !== null ? `${r.mejorNota}/${r.totalPreguntas}` : '—') : 'N/A'}</span><span class="det">${r.tieneCuestionario ? `${r.intentosUsados} intento(s)${r.intentosRestantes !== null ? ` · quedan ${r.intentosRestantes}` : ''}` : ''}</span></div>
       <div class="kpi"><span class="et">Fecha límite</span><span class="num" style="font-size:20px">${esc(fmtFecha(d.asignacion.fecha_limite))}</span><span class="det">asignada el ${esc(fmtFecha(d.asignacion.fecha_asignacion))}</span></div>
     </div>
     ${
       permisos.recordar || permisos.editar
         ? `<div class="tarjeta pila"><h2>Acciones</h2><div class="acciones">
-      ${permisos.recordar && !r.firmado ? '<button class="btn btn-primario" id="recordar">Enviar recordatorio</button>' : ''}
+      ${permisos.recordar && r.requiereAccion ? '<button class="btn btn-primario" id="recordar">Enviar recordatorio</button>' : ''}
       ${permisos.editar && r.tieneCuestionario && !r.aprobado && r.intentosRestantes !== null ? '<button class="btn btn-sec" id="intento">Habilitar un intento más</button>' : ''}
       ${permisos.editar && cap.modalidad !== 'virtual' && !r.presencialOk ? `<button class="btn btn-sec" id="manual">${cap.modalidad === 'en_vivo' ? 'Marcar que asistió a la reunión' : 'Marcar asistencia manual'}</button>` : ''}
-      ${permisos.editar && !r.firmado ? `<span class="fila" style="gap:6px"><label class="sr-only" for="nueva-fecha">Nueva fecha límite</label><input type="date" id="nueva-fecha" value="${esc(d.asignacion.fecha_limite)}" style="width:auto"><button class="btn btn-sec" id="cambiar-fecha">Cambiar fecha límite</button></span>` : ''}
+      ${permisos.editar && !r.completado ? `<span class="fila" style="gap:6px"><label class="sr-only" for="nueva-fecha">Nueva fecha límite</label><input type="date" id="nueva-fecha" value="${esc(d.asignacion.fecha_limite)}" style="width:auto"><button class="btn btn-sec" id="cambiar-fecha">Cambiar fecha límite</button></span>` : ''}
     </div></div>`
         : ''
     }
@@ -324,8 +369,8 @@ export function vistaRegistro(capId) {
   const filas = d.filas
     .map(
       (f, i) => `<tr><td>${i + 1}</td><td>${esc(f.colaborador.nombre)}</td><td>${esc(f.colaborador.dni || '—')}</td><td>${esc(f.colaborador.area)}</td><td>${esc(f.colaborador.cargo)}</td>
-      <td>${esc(TIPOS_ASISTENCIA[f.asistencia.tipo] || f.asistencia.tipo)}</td><td>${f.resumen.tieneCuestionario ? `${f.resumen.mejorNota}/${f.resumen.totalPreguntas}` : '—'}</td>
-      <td>${esc(fmtFechaHora(f.asistencia.firmado_en))}</td><td>${f.firma ? `<img src="${esc(f.firma)}" alt="Firma">` : ''}</td></tr>`
+      <td>${esc(cap.modalidad === 'en_vivo' ? 'En vivo (Teams)' : TIPOS_ASISTENCIA[f.asistencia?.tipo] || '—')}</td><td>${f.resumen.tieneCuestionario ? `${f.resumen.mejorNota}/${f.resumen.totalPreguntas}` : '—'}</td>
+      <td>${esc(fmtFechaHora(f.resumen.completadoEn))}</td><td>${f.firma ? `<img src="${esc(f.firma)}" alt="Firma">` : `<span style="font-size:11px">${f.resumen.tieneCuestionario ? 'Cuestionario aprobado' : 'Asistencia registrada por RR.HH.'}</span>`}</td></tr>`
     )
     .join('');
   return {
@@ -335,7 +380,7 @@ export function vistaRegistro(capId) {
       <a class="volver" href="#/capacitaciones/${esc(capId)}/seguimiento">← Volver al seguimiento</a>
       <div class="cab"><div><h1>Registro de asistencia</h1><p class="sub">Para descargarlo en PDF elige «Guardar como PDF» en la ventana de impresión.</p></div>
         <div class="acciones"><button class="btn btn-sec" id="excel">${ico.descarga} Excel</button><button class="btn btn-primario" id="imprimir">${ico.descarga} Descargar PDF</button></div></div>
-      ${d.pendientes ? `<div class="aviso warn">${d.pendientes} persona(s) asignada(s) aún no firman y no aparecen en el registro.</div>` : ''}
+      ${d.pendientes ? `<div class="aviso warn">${d.pendientes} persona(s) asignada(s) aún no completan y no aparecen en el registro.</div>` : ''}
       <div class="aviso info">Formato base de trabajo: confirmar campos obligatorios con SST y la normativa vigente (Ley N.° 29783 y sus formatos referenciales).</div>
     </div>
     <article class="registro">
@@ -355,8 +400,8 @@ export function vistaRegistro(capId) {
         <div><b>Total de asistentes:</b> ${d.filas.length}</div>
         <div><b>Nota mínima:</b> ${cap.preguntas.length ? `${cap.nota_minima}/${cap.preguntas.length}` : 'Sin evaluación'}</div>
       </div>
-      <div class="tabla-wrap"><table><thead><tr><th>N.°</th><th>Apellidos y nombres</th><th>DNI</th><th>Área</th><th>Cargo</th><th>Modalidad</th><th>Nota</th><th>Fecha y hora de firma</th><th>Firma</th></tr></thead>
-      <tbody>${filas || '<tr><td colspan="9" style="text-align:center">Aún no hay asistentes con firma.</td></tr>'}</tbody></table></div>
+      <div class="tabla-wrap"><table><thead><tr><th>N.°</th><th>Apellidos y nombres</th><th>DNI</th><th>Área</th><th>Cargo</th><th>Modalidad</th><th>Nota</th><th>Fecha y hora</th><th>Firma / evidencia</th></tr></thead>
+      <tbody>${filas || '<tr><td colspan="9" style="text-align:center">Aún no hay asistentes que hayan completado.</td></tr>'}</tbody></table></div>
       <div class="pie-reg"><div>Responsable del registro<br>${esc(d.generado_por)}</div><div>Capacitador<br>${esc(cap.capacitador_nombre || '')}</div></div>
     </article>`,
     montar: (root) => {
@@ -380,12 +425,12 @@ export function exportarExcel(capId) {
     'Fecha asignación': f.asignacion.fecha_asignacion,
     'Fecha límite': f.asignacion.fecha_limite,
     'Videos vistos': `${f.resumen.videosVistos}/${f.resumen.totalVideos}`,
-    'Asistencia presencial': f.resumen.presencialOk && !f.resumen.ingresoReunion ? 'Sí' : 'No',
-    'Ingresó a reunión Teams': f.resumen.ingresoReunion ? fmtFechaHora(f.resumen.ingresoReunion) : cap.modalidad === 'en_vivo' ? 'No' : '',
+    'Asistencia registrada': f.resumen.presencialOk ? 'Sí' : 'No',
     Nota: f.resumen.mejorNota === null ? 'Sin responder' : `${f.resumen.mejorNota}/${f.resumen.totalPreguntas}`,
     Intentos: f.resumen.intentosUsados,
     Firmó: f.resumen.firmado ? 'Sí' : 'No',
     'Fecha firma': f.resumen.firmadoEn ? fmtFechaHora(f.resumen.firmadoEn) : '',
+    'Completado el': f.resumen.completadoEn ? fmtFechaHora(f.resumen.completadoEn) : '',
     Estado: ESTADOS[f.resumen.estado].label,
     Avance: `${f.resumen.porcentaje} %`,
     'Último recordatorio': f.ultimoRecordatorio ? fmtFechaHora(f.ultimoRecordatorio.enviado_en) : '',
